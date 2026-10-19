@@ -88,10 +88,12 @@
       attribute: 'all',
       channel: 'all',
       ticketStatus: 'all',
-      monitoringType: 'all'
+      monitoringType: 'all',
+      auditors: []
     },
     uiOnlyRows: [],
     deletedRowIds: new Set(),
+    auditorFilterOpen: false,
     loading: true,
     loadError: ''
   };
@@ -527,7 +529,8 @@
       return state.teamFilter === 'team';
     }
 
-    function getDatasetScopedRows(includeDatasetView = true) {
+    function getDatasetScopedRows(includeDatasetView = true, options = {}) {
+    const includeAuditorFilter = options.includeAuditorFilter !== false;
     let rows = state.rows.filter((row) => !state.deletedRowIds.has(row.rowId));
 
       if (state.teamFilter === 't1' || state.teamFilter === 't2os') {
@@ -551,6 +554,7 @@
           row.channel,
           row.ticketStatus,
           row.monitoringType,
+          row.takerName,
           row.salesComments,
           row.failedAttributes.map((item) => `${item.label} ${item.comment}`).join(' ')
         ].join(' ').toLowerCase();
@@ -574,6 +578,13 @@
 
     if (state.filters.monitoringType !== 'all') {
       rows = rows.filter((row) => normalizeKey(row.monitoringType) === state.filters.monitoringType);
+    }
+
+    if (includeAuditorFilter) {
+      const selectedAuditors = new Set(getEffectiveAuditorSelection(getFilterOptionSets().auditors));
+      if (selectedAuditors.size) {
+      rows = rows.filter((row) => selectedAuditors.has(normalizeKey(row.takerName)));
+      }
     }
 
     if (state.quickFilter === 'errors') {
@@ -667,7 +678,7 @@
   }
 
   function getFilterOptionSets() {
-    const rows = getComparisonRows();
+    const rows = getDatasetScopedRows(false, { includeAuditorFilter: false });
     const collect = (getter) => {
       const values = new Map();
       rows.forEach((row) => {
@@ -691,7 +702,8 @@
       attributes: Array.from(attributeMap.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label)),
       channels: collect((row) => row.channel),
       ticketStatuses: collect((row) => row.ticketStatus),
-      monitoringTypes: collect((row) => row.monitoringType)
+      monitoringTypes: collect((row) => row.monitoringType),
+      auditors: collect((row) => row.takerName)
     };
   }
 
@@ -906,6 +918,76 @@
     return words.map((word) => word.charAt(0).toUpperCase()).join('') || 'QA';
   }
 
+  function normalizeAuditorSelection(values, options) {
+    const validValues = new Set(options.map((item) => item.value));
+    return Array.from(new Set((Array.isArray(values) ? values : []).filter((value) => validValues.has(value))));
+  }
+
+  function getEffectiveAuditorSelection(options) {
+    if (!options.length) return [];
+    const normalizedSelection = normalizeAuditorSelection(state.filters.auditors, options);
+    if (!normalizedSelection.length) {
+      return options.map((item) => item.value);
+    }
+    return normalizedSelection;
+  }
+
+  function isAuditorFilterAllSelected(options) {
+    const effectiveSelection = getEffectiveAuditorSelection(options);
+    return !options.length || effectiveSelection.length === options.length;
+  }
+
+  function getAuditorFilterSummary(options) {
+    if (isAuditorFilterAllSelected(options)) {
+      return 'All Auditors';
+    }
+    const selectedLabels = options
+      .filter((item) => state.filters.auditors.includes(item.value))
+      .map((item) => item.label);
+    if (!selectedLabels.length || selectedLabels.length === options.length) {
+      return 'All Auditors';
+    }
+    if (selectedLabels.length === 1) return selectedLabels[0];
+    if (selectedLabels.length === 2) return selectedLabels.join(', ');
+    return `${selectedLabels.length} auditors selected`;
+  }
+
+  function renderAuditorFilter(options) {
+    const normalizedSelection = normalizeAuditorSelection(state.filters.auditors, options);
+    if (normalizedSelection.length !== state.filters.auditors.length) {
+      state.filters.auditors = normalizedSelection;
+    }
+    const isAllSelected = isAuditorFilterAllSelected(options);
+    const effectiveSelection = new Set(getEffectiveAuditorSelection(options));
+    return `
+      <label class="block">
+        <span class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] analysis-muted">Auditor Name</span>
+        <details id="auditorFilterDetails" class="analysis-dropdown" ${options.length ? '' : 'data-empty="true"'} ${state.auditorFilterOpen ? 'open' : ''}>
+          <summary class="analysis-dropdown-trigger">
+            <span class="analysis-dropdown-summary">${escapeHtml(getAuditorFilterSummary(options))}</span>
+            <i data-lucide="chevron-down" class="h-4 w-4 shrink-0"></i>
+          </summary>
+          <div class="analysis-dropdown-panel">
+            <label class="analysis-checkbox-item analysis-checkbox-item-all">
+              <input id="auditorFilterAll" type="checkbox" ${isAllSelected ? 'checked' : ''} />
+              <span>All Auditors</span>
+            </label>
+            <div class="analysis-checklist">
+              ${options.length
+                ? options.map((item) => `
+                  <label class="analysis-checkbox-item">
+                    <input type="checkbox" value="${escapeHtml(item.value)}" data-auditor-filter-option ${effectiveSelection.has(item.value) ? 'checked' : ''} />
+                    <span>${escapeHtml(item.label)}</span>
+                  </label>
+                `).join('')
+                : '<div class="analysis-muted text-sm">No auditor names found in the current data.</div>'}
+            </div>
+          </div>
+        </details>
+      </label>
+    `;
+  }
+
   function render() {
     const root = document.getElementById('analysisRoot');
     if (!root) return;
@@ -955,10 +1037,10 @@
       const visibleTeamScoreCount = isTeamMode() ? filterTeamScoreRows(teamScoreRows).length : 0;
       const displayTitle = isAgentMode()
         ? (state.activeAgent || 'Select an agent')
-        : (isTeamMode() ? 'Team Performance Overview' : (state.teamFilter === 't1' ? 'MX T1 Team Performance' : 'MX T2 OS Team Performance'));
+        : (isTeamMode() ? 'Team Performance ' : (state.teamFilter === 't1' ? 'MX T1 Team Performance' : 'MX T2 OS Team Performance'));
       const displaySubtitle = isAgentMode()
         ? 'QA Error Tracking & Attribute Feedback Dashboard'
-        : 'Team-level QA Error Tracking & Attribute Feedback Dashboard';
+        : 'Team-level QA Error Tracking';
 
     root.innerHTML = `
       <section class="analysis-card p-6 sm:p-8">
@@ -976,31 +1058,36 @@
               <p class="analysis-muted mt-2 text-sm">${escapeHtml(displaySubtitle)}</p>
             </div>
           </div>
-          <div class="flex w-full flex-col gap-3 xl:w-auto xl:min-w-[720px]">
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto_auto]">
-              <label class="block">
-                <span class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] analysis-muted">Agent Spotlight</span>
-                  <select id="agentSelect" class="analysis-select" ${isTeamMode() ? 'disabled' : ''}>
-                  ${state.availableAgents.map((agent) => `<option value="${escapeHtml(agent)}" ${agent === state.activeAgent ? 'selected' : ''}>${escapeHtml(agent)}</option>`).join('')}
-                </select>
-              </label>
-              <label class="block">
-                <span class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] analysis-muted">Team Performance</span>
-                <select id="teamFilterSelect" class="analysis-select">
-                  <option value="all" ${state.teamFilter === 'all' ? 'selected' : ''}>Agent</option>
-                    <option value="team" ${state.teamFilter === 'team' ? 'selected' : ''}>Team</option>
-                  <option value="t1" ${state.teamFilter === 't1' ? 'selected' : ''}>MX T1</option>
-                  <option value="t2os" ${state.teamFilter === 't2os' ? 'selected' : ''}>MX T2 OS</option>
-                </select>
-              </label>
-              <button id="copyCommentsBtn" class="analysis-btn analysis-btn-secondary md:self-end">
-                <i data-lucide="copy" class="h-4 w-4"></i>
-                Copy All Attribute Failure Comments
-              </button>
-              <button id="openLogModalBtn" class="analysis-btn analysis-btn-primary md:self-end">
-                <i data-lucide="plus" class="h-4 w-4"></i>
-                Log Evaluation
-              </button>
+          <div class="flex w-full flex-col gap-3 xl:min-w-0 xl:flex-1">
+            <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_270px] xl:items-end">
+              <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
+                <label class="block">
+                  <span class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] analysis-muted">Agent Spotlight</span>
+                    <select id="agentSelect" class="analysis-select" ${isTeamMode() ? 'disabled' : ''}>
+                    ${state.availableAgents.map((agent) => `<option value="${escapeHtml(agent)}" ${agent === state.activeAgent ? 'selected' : ''}>${escapeHtml(agent)}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] analysis-muted">Team Performance</span>
+                  <select id="teamFilterSelect" class="analysis-select">
+                    <option value="all" ${state.teamFilter === 'all' ? 'selected' : ''}>Agent</option>
+                      <option value="team" ${state.teamFilter === 'team' ? 'selected' : ''}>Team</option>
+                    <option value="t1" ${state.teamFilter === 't1' ? 'selected' : ''}>MX T1</option>
+                    <option value="t2os" ${state.teamFilter === 't2os' ? 'selected' : ''}>MX T2 OS</option>
+                  </select>
+                </label>
+                ${renderAuditorFilter(filterOptions.auditors)}
+              </div>
+              <div class="flex w-full flex-col gap-3 xl:w-[270px] xl:shrink-0">
+                <button id="openLogModalBtn" class="analysis-btn analysis-btn-primary w-full">
+                  <i data-lucide="plus" class="h-4 w-4"></i>
+                  Log Evaluation
+                </button>
+                <button id="copyCommentsBtn" class="analysis-btn analysis-btn-secondary w-full !px-4 text-sm">
+                  <i data-lucide="copy" class="h-4 w-4"></i>
+                  Copy All Attribute Failure Comments
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1752,6 +1839,31 @@
     bindFilterControl('customFromInput', 'change', (value) => { state.filters.customFrom = value; });
     bindFilterControl('customToInput', 'change', (value) => { state.filters.customTo = value; });
 
+    const auditorOptions = getFilterOptionSets().auditors;
+    const auditorAll = document.getElementById('auditorFilterAll');
+    const auditorDetails = document.getElementById('auditorFilterDetails');
+    if (auditorDetails) {
+      auditorDetails.addEventListener('toggle', () => {
+        state.auditorFilterOpen = auditorDetails.open;
+      });
+    }
+    if (auditorAll) {
+      auditorAll.addEventListener('change', (event) => {
+        state.auditorFilterOpen = true;
+        state.filters.auditors = event.target.checked ? auditorOptions.map((item) => item.value) : [];
+        render();
+      });
+    }
+
+    document.querySelectorAll('[data-auditor-filter-option]').forEach((input) => {
+      input.addEventListener('change', () => {
+        state.auditorFilterOpen = true;
+        const selectedValues = Array.from(document.querySelectorAll('[data-auditor-filter-option]:checked')).map((element) => element.value);
+        state.filters.auditors = normalizeAuditorSelection(selectedValues, auditorOptions);
+        render();
+      });
+    });
+
     const resetBtn = document.getElementById('resetFiltersBtn');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
@@ -1827,7 +1939,8 @@
       attribute: 'all',
       channel: 'all',
       ticketStatus: 'all',
-      monitoringType: 'all'
+      monitoringType: 'all',
+      auditors: []
     };
     state.quickFilter = 'all';
   }
