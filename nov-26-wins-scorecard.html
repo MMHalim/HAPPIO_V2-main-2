@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wins Scorecard</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="global-theme.css">
+    <style>
+        .page-content { padding: 24px; }
+        .scorecard-header {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            font-size: 28px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 12px;
+ }
+        .scorecard-subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+ }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+ }
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+ }
+        .field label { color: var(--text-primary); font-weight: 600; }
+        .field input, .field select, .field textarea {
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+ }
+        .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .date-range { display: flex; align-items: center; gap: 8px; }
+        .calendar-icon { cursor: pointer; font-size: 18px; color: var(--text-primary); }
+        .range-sep { color: var(--text-secondary); }
+        /* Inline Range Calendar */
+        .inline-range-calendar { 
+            margin-top: 8px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 12px; 
+            background: var(--bg-card); 
+            box-shadow: var(--shadow-light);
+            padding: 12px;
+            max-width: 320px;
+ }
+        .irc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .irc-month-label { font-weight: 700; color: var(--text-primary); }
+        .irc-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+        .irc-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .rc-day { text-align: center; padding: 8px 0; border-radius: 8px; cursor: pointer; color: var(--text-primary); }
+        .rc-day:hover { background: var(--bg-nav-item-hover); }
+        .rc-other-month { opacity: 0.4; }
+        .rc-selected-start, .rc-selected-end { 
+            background: var(--primary-color); 
+            color: #fff; 
+ }
+        .rc-in-range { 
+            background: rgba(96, 165, 250, 0.25); 
+            border: 1px solid var(--border-hover); 
+ }
+        .rc-disabled { pointer-events: none; opacity: 0.3; }
+        .radio-pill {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-nav-item);
+            cursor: pointer;
+ }
+        .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px; }
+        .notice {
+            margin-top: 6px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 153, 0, 0.3);
+            background: rgba(255, 153, 0, 0.08);
+            color: #f59e0b;
+            display: none;
+ }
+        /* Attributes Scoring */
+        .attributes-card { margin-top: 16px; }
+        .attributes-header { display: flex; align-items: center; justify-content: space-between; }
+        .attributes-subtitle { color: var(--text-secondary); }
+        .attributes-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .pane { border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-card); padding: 12px; }
+        .pane-scroll { height: 520px; overflow: auto; }
+        #smePane { height: auto; overflow: visible; }
+        #attributesPane {
+            max-height: calc(100vh - 40px);
+            position: sticky;
+            top: 20px;
+            overflow-y: auto;
+ }
+
+        /* Scroll is handled by pane; lists inherit */
+        .attributes-groups { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .attributes-title { 
+            font-weight: 700; 
+            color: var(--text-primary); 
+            margin-top: 0;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            z-index: 5;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 8px;
+ }
+        .attributes-list { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 8px; }
+        .attr-row { display: grid; grid-template-columns: 1fr auto 80px; gap: 12px; align-items: start; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; background: var(--bg-card); }
+        .attr-comment { grid-column: 1 / -1; margin-top: 8px; }
+        .attr-comment textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text-primary);
+            resize: vertical;
+ }
+        .attr-comment textarea::placeholder { color: var(--text-secondary); }
+        .attr-comment label { font-weight: 600; color: var(--text-primary); }
+        .sme-title { font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .sme-list { 
+            display: grid; 
+            grid-template-columns: 1fr max-content; 
+            align-items: start; 
+            width: 100%; 
+            column-gap: 24px; 
+            row-gap: 12px; 
+ }
+        .sme-list .full-span { grid-column: 1 / -1; }
+        /* Fields match their label width and align top */
+        .sme-list .field { display: inline-flex; flex-direction: column; align-items: flex-start; width: max-content; }
+        .sme-list .field label { white-space: nowrap; }
+        .sme-list .field select,
+        .sme-list .field input { width: 100%; min-width: 0; max-width: none; }
+        .sme-list .field.align-right { justify-self: end; grid-column: 2; }
+        /* Ensure selected text is primary color for visibility */
+        .sme-list .field select:has(option:checked[value=""]) { color: var(--text-secondary); }
+        .sme-list .field select { color: var(--text-primary); }
+        /* Full-width for comment rows */
+        .sme-list .full-span { grid-column: 1 / -1; width: 100%; max-width: 100%; box-sizing: border-box; }
+        .sme-list .full-span textarea { 
+             width: 100%; 
+             max-width: 100%;
+             resize: none;
+             box-sizing: border-box;
+ }
+         /* Keep interaction dropdown full width of its field */
+         #interactionDropdownRoot { max-width: none; min-width: 400px; }
+
+         /* RTE Styles */
+        .rte-container {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-input);
+            overflow: hidden;
+            margin-top: 4px;
+            width: 100%;
+            box-sizing: border-box;
+ }
+         .rte-toolbar {
+             display: flex;
+             gap: 4px;
+             padding: 6px;
+             border-bottom: 1px solid var(--border-color);
+             background: var(--bg-card);
+ }
+         .rte-btn {
+             background: transparent;
+             border: 1px solid transparent;
+             border-radius: 4px;
+             padding: 4px 8px;
+             cursor: pointer;
+             color: var(--text-primary);
+             font-size: 14px;
+             display: flex;
+             align-items: center;
+             gap: 4px;
+ }
+         .rte-btn:hover {
+             background: var(--hover-bg);
+ }
+         .rte-editor {
+             min-height: 80px;
+             padding: 8px;
+             outline: none;
+             color: var(--text-primary);
+             font-family: inherit;
+             font-size: 14px;
+ }
+         .rte-editor ul, .rte-editor ol {
+             padding-left: 20px;
+             margin: 4px 0;
+ }
+        /* Keep SME select wide enough to show selected name */
+        #smeName { min-width: 240px; }
+        /* Keep Ticket Status wide enough to show hint */
+        #ticketStatus { min-width: 200px; }
+        /* Keep interaction dropdown full width */
+        #interactionRelatedTo { max-width: none; }
+        /* Placeholder for interaction dropdown input */
+        #interactionDropdownInput::placeholder { color: var(--text-secondary); }
+        @media (max-width: 900px) {
+          .sme-list { grid-template-columns: 1fr; }
+          .sme-list .field { width: 100%; }
+ }
+        .sme-radio-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .sme-radio-group label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; }
+        .sme-radio-group input { accent-color: var(--primary-color); }
+        .sme-radio-group label:has(input:checked),
+        .sme-radio-group label.checked { border-color: var(--primary-color); background: var(--bg-nav-item-active); }
+        .attr-title { display: grid; grid-template-rows: auto auto; gap: 6px; }
+        .attr-name { font-weight: 600; color: var(--text-primary); }
+        .attr-desc { white-space: pre-line; color: var(--text-secondary); font-size: 13px; }
+        .attr-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .attr-controls label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; }
+        .attr-controls input { accent-color: var(--primary-color); }
+        .attr-controls label:has(input:checked),
+        .attr-controls label.checked { border-color: var(--primary-color); background: var(--bg-nav-item-active); }
+        .attr-score { font-weight: 700; color: var(--primary-color); align-self: center; text-align: right; }
+        .attr-score.zero { color: #ef4444; }
+        .attr-subtotal { margin-top: 8px; font-weight: 600; color: var(--text-primary); }
+        /* Overlay Range Picker (Freshchat-style) */
+        .range-picker-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 99999; }
+        /* Make modal content fully opaque for readability */
+        .rp-content { width: 740px; max-width: 95vw; background: #0f172a; border: 1px solid var(--border-color); border-radius: 16px; box-shadow: var(--shadow); padding: 16px; color: var(--text-primary); backdrop-filter: none; }
+        [data-theme="light"] .rp-content { background: #ffffff; color: var(--text-primary); }
+        .rp-title { font-weight: 700; margin-bottom: 12px; color: var(--text-primary); }
+        .rp-controls { display: grid; grid-template-columns: 40px minmax(280px,1fr) minmax(280px,1fr) 40px; gap: 12px; align-items: start; margin-bottom: 8px; }
+        .rp-controls button { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; }
+        .rp-col { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; }
+        .rp-header-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .rp-header-row select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); }
+        .rp-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; font-size: 12px; color: var(--text-secondary); }
+        .rp-weekdays > div { text-align: center; }
+        .rp-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; min-height: 220px; }
+        .rp-day { display: flex; align-items: center; justify-content: center; height: 36px; border-radius: 8px; cursor: pointer; color: var(--text-primary); background: rgba(255,255,255,0.06); }
+        .rp-day:hover { background: rgba(255,255,255,0.12); }
+        .rp-other { opacity: 0.45; }
+        .rp-selected-start, .rp-selected-end { background: var(--primary-color); color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset; }
+        .rp-in-range { background: rgba(124, 58, 237, 0.22); border: 1px solid rgba(124,58,237,0.35); }
+        .rp-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+        .rp-label-collapsed { font-weight: 700; color: var(--text-primary); cursor: pointer; }
+        .rp-label-collapsed:hover { opacity: 0.85; }
+        .recent-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+ }
+        .recent-table th, .recent-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            text-align: left;
+ }
+        /* Compact case picker styles */
+        .compact-grid { display: grid; grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr auto; gap: 10px; align-items: center; justify-items: center; justify-content: center; }
+        .compact-grid .field { align-items: flex-start; }
+        .compact-grid .field label { text-align: left; }
+        .btn-stack { display: flex; flex-direction: column; gap: 6px; }
+        .btn-slim { padding: 8px 12px; font-size: 12px; }
+        .action-box { background: #6d28d9; border-radius: 12px; padding: 8px; }
+        .action-box .global-btn { background: #7c3aed; color: #fff; border: none; }
+        .action-box .global-btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+
+        /* Skip Modal styles */
+        .global-modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.55);
+            z-index: 100000;
+ }
+        .global-modal {
+            width: 520px;
+            max-width: 95vw;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 16px;
+ }
+        /* Position the Skip modal near the top area, match Heads up style */
+        #skipModalOverlay {
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 10vh;
+            background: transparent; /* Heads up style: no dim */
+ }
+        #skipModalOverlay .global-modal {
+            transform: none;
+            position: relative;
+            background: #1e293b; /* Solid dark background */
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+ }
+        [data-theme="light"] #skipModalOverlay .global-modal {
+            background: #ffffff; /* Solid light background */
+ }
+        #skipModalOverlay .skip-accent {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 4px;
+            width: 100%;
+            background: var(--warning-color);
+ }
+        #skipModalOverlay .global-card-subtitle,
+        #skipModalOverlay label {
+            color: var(--text-secondary);
+ }
+        #skipModalOverlay textarea {
+            background: var(--bg-nav-item);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+ }
+        #skipModalOverlay .skip-counter-badge {
+            margin-left: 8px;
+            padding: 2px 8px;
+            font-size: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            background: var(--bg-nav-item);
+ }
+        [data-theme="light"] .global-modal { background: var(--bg-card); color: var(--text-primary); }
+
+        /* Make the first form section more compact */
+        .compact-form .field input,
+        .compact-form .field select {
+            max-width: 320px;
+            width: 100%;
+            padding: 8px 10px;
+ }
+        .compact-form .radio-group { gap: 6px; }
+        .compact-form .radio-pill { padding: 6px 10px; font-size: 12px; border-radius: 10px; }
+        /* Restore original look for Certification/Calibration radios */
+        .compact-form .radio-group[data-group="certification"],
+        .compact-form .radio-group[data-group="calibration"] { gap: 8px; }
+        .compact-form .radio-group[data-group="certification"] .radio-pill,
+        .compact-form .radio-group[data-group="calibration"] .radio-pill { padding: 8px 12px; font-size: inherit; border-radius: 14px; }
+        /* Agent dropdown embedded list */
+        .agent-dropdown { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; max-width: 320px; z-index: 9999; }
+        .agent-dropdown input { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); }
+        .agent-dropdown-toggle { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); cursor: pointer; }
+        .agent-dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--shadow); z-index: 10000; }
+        .agent-dropdown-filter { width: calc(100% - 16px); margin: 8px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; }
+        .agent-dropdown-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; }
+        .agent-dropdown-list li { padding: 10px 12px; cursor: pointer; }
+        .agent-dropdown-list li:hover { background: var(--bg-nav-item-hover); }
+        /* Ensure the first card overlays details card when dropdowns open */
+        .select-criteria-card { position: relative; z-index: 9000; }
+        .details-card { position: relative; z-index: 1; }
+        /* Extra safety for date range picker content */
+        .rp-content { position: relative; z-index: 100001; }
+        /* Even distribution for Conversation Details widgets */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+            align-items: start;
+ }
+        .details-grid .field input,
+        .details-grid .field select {
+            width: 100%;
+            max-width: 100%;
+            padding: 8px 10px;
+ }
+        /* Placeholder color for agent dropdown */
+        #agentDropdownInput::placeholder { color: var(--text-secondary); }
+        /* Team select color based on selection state */
+        #teamSelect.select-empty { color: var(--text-secondary); }
+        #teamSelect.select-filled { color: var(--text-primary); }
+        .details-grid .radio-pill { padding: 6px 10px; }
+        /* Force agent dropdown surfaces to be fully opaque in both themes */
+        /* Force agent dropdown surfaces to be fully opaque and darker */
+        .agent-dropdown-panel { background: #0f172a; }
+        .agent-dropdown-filter { background: #1e293b; color: var(--text-primary); }
+        
+        /* Ensure Select Team and other options have dark background */
+        select option { background: #0f172a; color: #f8fafc; }
+
+        [data-theme="light"] .agent-dropdown-panel { background: #ffffff; }
+        [data-theme="light"] .agent-dropdown-filter { background: #f1f5f9; color: var(--text-primary); }
+        [data-theme="light"] select option { background: #ffffff; color: #1e293b; }
+    </style>
+</head>
+<body>
+    <!-- Global Navigation will be inserted by global-navigation.js -->
+
+    <div class="page-content">
+        <div class="global-card">
+            <div class="scorecard-header">Wins Scorecard</div>
+            <div class="scorecard-subtitle">Audit and submit wins interactions using the modern theme</div>
+
+            <!-- Case Picker: Select Team, Date Range, Agent, Actions -->
+            <div class="global-card select-criteria-card" style="margin-top: 8px;">
+                <div class="global-card-title">Select Criteria</div>
+                <div class="compact-grid">
+                    <div class="field">
+                        <label>Date Range</label>
+                        <div class="date-range">
+                          <span id="calendarIcon" class="calendar-icon" title="Pick Start then End">📅</span>
+                          <input id="dateRangeSingle" type="date" style="display:none;" />
+                          <!-- Hidden inputs preserve existing logic in getCase() -->
+                          <input id="dateFrom" type="hidden" />
+                          <input id="dateTo" type="hidden" />
+                          <!-- Hide verbose from/to line to avoid duplicate date range display -->
+                          <div class="date-status" style="display:none;">
+                            <span id="dateFromDisplay" class="date-display">From: —</span>
+                            <span id="dateToDisplay" class="date-display">To: —</span>
+                          </div>
+                          <!-- Collapsed label resembling Freshchat (no time pickers used here) -->
+                          <div id="rpCollapsedLabel" class="rp-label-collapsed" style="margin-left:8px;"></div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="teamSelect">Select Team</label>
+                        <select id="teamSelect">
+                            <option value="">Select option</option>
+                            <option value="Wins (Chats)" data-code="T1_EMAIL_SUPPORT">Wins (Chats)</option>
+                            <option value="Wins (Emails)" data-code="T1_CHAT_SUPPORT">Wins (Emails)</option>
+                            <option value="Wins (Phones)" data-code="SALES_LIVE_CHAT">Wins (Phones)</option>
+                                                    </select>
+                    </div>
+                    
+            <!-- Overlay Range Picker -->
+            <div id="rangePickerModal" class="range-picker-modal">
+              <div class="rp-content">
+                <div id="rpTitle" class="rp-title">Select date range:</div>
+                <div class="rp-controls">
+                  <button id="rpPrev" class="global-btn btn-slim" type="button">‹</button>
+                  <div class="rp-col">
+                    <div class="rp-header-row">
+                      <select id="rpMonthLeft"></select>
+                      <select id="rpYearLeft"></select>
+                    </div>
+                    <div class="rp-weekdays"><div>SU</div><div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div></div>
+                    <div id="rpDaysLeft" class="rp-days"></div>
+                  </div>
+                  <div class="rp-col">
+                    <div class="rp-header-row">
+                      <select id="rpMonthRight"></select>
+                      <select id="rpYearRight"></select>
+                    </div>
+                    <div class="rp-weekdays"><div>SU</div><div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div></div>
+                    <div id="rpDaysRight" class="rp-days"></div>
+                  </div>
+                  <button id="rpNext" class="global-btn btn-slim" type="button">›</button>
+                </div>
+                <div class="rp-footer">
+                  <button id="rpCancel" class="global-btn btn-slim" type="button">Cancel</button>
+                  <button id="rpDone" class="global-btn btn-slim" type="button">Done</button>
+                </div>
+              </div>
+                    </div>
+                    <div class="field">
+                        <label for="agentNameSelect">Agent Name</label>
+                        <!-- Replaced custom dropdown with standard select per user request -->
+                        <select id="agentNameSelect">
+                            <option value="">Select agent</option>
+                        </select>
+                        <!-- Hidden elements to prevent JS errors if referenced -->
+                        <div style="display:none;">
+                            <input id="agentDropdownInput" />
+                            <div id="agentDropdownPanel">
+                                <input id="agentDropdownFilter" />
+                                <ul id="agentDropdownList"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field" style="justify-self: end;">
+                        <div class="action-box btn-stack">
+                            <button id="getCaseBtn" class="global-btn btn-slim">Get Case</button>
+                            <button id="skipBtn" class="global-btn btn-slim">Skip</button>
+                            <button id="calibrationBtn" class="global-btn btn-slim" style="display:none;">Calibration</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conversation Details: remove title and distribute widgets evenly -->
+            <div class="global-card details-card" style="margin-top: 8px;">
+                <div class="details-grid compact-form">
+                    <div class="field">
+                        <label for="conversationIdInput">Conversation ID</label>
+                        <div style="position:relative;">
+                          <input id="conversationIdInput" type="text" placeholder="e.g. 123456789" style="padding-right:56px; width:100%;" disabled />
+                          <button id="ticketIconBtn" type="button" title="Open Freshworks Ticket" aria-label="Open Freshworks Ticket" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; border:none; border-radius:50%; background:#7c3aed; color:#fff; cursor:pointer; line-height:0; z-index:2; align-items:center; justify-content:center; box-sizing:border-box;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                              <path fill="#fff" d="M4 3l17 9-17 9V3z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <!-- Hidden field stores the Freshworks row id for reliable PATCH operations -->
+                        <input id="freshworksRowId" type="hidden" />
+                        <div id="duplicateNotice" class="notice">Duplicate found for this Conversation ID. Review before submitting.</div>
+                    </div>
+
+                    <div class="field">
+                        <label for="agentEmailInput">Agent Email</label>
+                        <input id="agentEmailInput" type="email" placeholder="agent@example.com" disabled />
+                    </div>
+
+                    <div class="field">
+                        <label for="channelSelect">Channel</label>
+                        <select id="channelSelect">
+                            <option value="" selected>Select channel</option>
+                            <option value="Chat">Chat</option>
+                            <option value="Email">Email</option>
+                            <option value="Phone">Phone</option>
+                        </select>
+                    </div>
+
+                    <div class="field" style="display:flex; flex-direction:column; min-height:120px;">
+                        <label for="takerNameInput">Taker Name</label>
+                        <input id="takerNameInput" type="text" placeholder="Auto-filled from your profile" disabled style="margin-bottom:8px;" />
+                    </div>
+
+                    <div class="field">
+                        <label>Certification</label>
+                        <div class="sme-radio-group" data-group="certification">
+                            <label><input type="radio" name="certification" value="Yes"> Yes</label>
+                            <label><input type="radio" name="certification" value="No" checked> No</label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Calibration</label>
+                        <div class="sme-radio-group" data-group="calibration">
+                            <label><input type="radio" name="calibration" value="Yes"> Yes</label>
+                            <label><input type="radio" name="calibration" value="No" checked> No</label>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Skip Modal -->
+            <div id="skipModalOverlay" class="global-modal-overlay" style="display:none;">
+              <div class="global-modal">
+                <div class="skip-accent"></div>
+                <div class="global-card-title">Skip Conversation</div>
+                
+                <div class="field" style="margin-top:8px;">
+                  <label>Skip action</label>
+                  <div class="sme-radio-group" id="skipActionGroup">
+                    <label><input type="radio" name="skipAction" id="skipActionQAED" value="qaed" checked> Audited Before (QAED)</label>
+                    <label><input type="radio" name="skipAction" id="skipActionNext" value="next"> Move to next case <span id="skipNextCounterBadge" class="skip-counter-badge"></span></label>
+                  </div>
+                </div>
+                <div class="field" style="margin-top:8px;">
+                  <label for="skipModalReason">Skip Reason</label>
+                  <textarea id="skipModalReason" rows="3" placeholder="Why skipped?"></textarea>
+                </div>
+                <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+                  <button id="skipModalCancelBtn" class="global-btn global-btn-secondary">Cancel</button>
+                  <button id="skipModalConfirmBtn" class="global-btn">Confirm</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Removed old 1–5 scoring card -->
+
+            <!-- Attributes Scoring (Yes/No-based) -->
+            <div class="global-card attributes-card">
+                <div class="attributes-split">
+                  <!-- SME panel on the left -->
+                  <div class="pane pane-scroll" id="smePane">
+                    <div class="sme-list">
+                      <div class="field">
+                        <label for="smeAnswerProvided">Answer provided by SME</label>
+                        <select id="smeAnswerProvided">
+                          <option value="">Select option</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                          <option value="N/A">N/A</option>
+                        </select>
+                      </div>
+                      <div class="field align-right">
+                        <label for="smeName">SME</label>
+                        <select id="smeName">
+                          <option value="">Select SME</option>
+                          <option value="khaled.ahmed@tempo.fit">Khaled Ahmed</option>
+                          <option value="noha.radwan@tempo.fit">Noha Radwan</option>
+                          <option value="Ahmed Mahmoud">Ahmed Mahmoud</option>
+                          <option value="Bassem Hesham">Bassem Hesham</option>
+                          <option value="Emad Mohamed">Emad Mohamed</option>
+                          <option value="Rashad Mohammed">Rashad Mohammed</option>
+                          <option value="Santos Nykang">Santos Nykang</option>
+                          <option value="Ahmed Hamad">Ahmed Hamad</option>
+                          <option value="Mohamed Mounir">Mohamed Mounir</option>
+                          <option value="Youkabed Farid">Youkabed Farid</option>
+                          <option value="Marwan Fathy">Marwan Fathy</option>
+                          <option value="N/A">N/A</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="smeFollowingProcess">SME following process</label>
+                        <select id="smeFollowingProcess">
+                          <option value="">Select option</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                          <option value="N/A">N/A</option>
+                        </select>
+                      </div>
+                      <div class="field align-right">
+                        <label for="ticketStatus">Ticket Status</label>
+                        <select id="ticketStatus">
+                          <option value="">Select status</option>
+                          <option value="Open">Open</option>
+                          <option value="Snoozed">Snoozed</option>
+                          <option value="Done">Done</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="monitoringType">Monitoring type</label>
+                        <select id="monitoringType">
+                          <option value="">Select type</option>
+                          <option value="Remote">Remote</option>
+                          <option value="SBS">SBS</option>
+                          <option value="Selected">Selected</option>
+                        </select>
+                      </div>
+                      <div class="field align-right">
+                        <label for="interactionRelatedTo">Interaction related to</label>
+                        <div class="agent-dropdown" id="interactionDropdownRoot">
+                          <input id="interactionDropdownInput" type="text" placeholder="Select topic..." />
+                          <button id="interactionDropdownToggle" class="agent-dropdown-toggle" type="button">▾</button>
+                          <div id="interactionDropdownPanel" class="agent-dropdown-panel" hidden>
+                            <input id="interactionDropdownFilter" class="agent-dropdown-filter" type="text" placeholder="Filter..." />
+                            <ul id="interactionDropdownList" class="agent-dropdown-list"></ul>
+                          </div>
+                        </div>
+                        <select id="interactionRelatedTo" style="display:none;">
+                          <option value="">Select option</option>
+                          <option>Tempo Studio - Pre-Sales</option>
+                          <option>Tempo Move - Pre-Sales</option>
+                          <option>Accessories - Pre-Sales</option>
+                          <option>Tempo Studio ETA</option>
+                          <option>Tempo Move ETA</option>
+                          <option>Accessories ETA</option>
+                          <option>Tempo Studio - Specifications/Compatibility</option>
+                          <option>Tempo Move- Specifications/Compatibility</option>
+                          <option>Accessories - Specifications/Compatibility</option>
+                          <option>Tempo Studio - Delivery Issues</option>
+                          <option>Tempo Move - Delivery Issues</option>
+                          <option>Accessories - Delivery Issues</option>
+                          <option>Tempo Studio - Cancellation</option>
+                          <option>Tempo Move - Cancellation</option>
+                          <option>Accessories - Cancellation</option>
+                          <option>Tempo Studio - Return</option>
+                          <option>Tempo Move - Return</option>
+                          <option>Accessories - Return</option>
+                          <option>Tempo Studio - Churn</option>
+                          <option>Studio - Classes/Programs/Content - Missing/Feedback</option>
+                          <option>Move - Classes/Programs/Content - Missing/Feedback</option>
+                          <option>Tempo Studio - Membership/Billing inquiry/Refund</option>
+                          <option>Tempo Move - Membership/Billing inquiry/Refund</option>
+                          <option>Tempo Studio - Subscription issue</option>
+                          <option>Tempo Move - Subscription issue</option>
+                          <option>Membership pause</option>
+                          <option>Membership cancellation</option>
+                          <option>Transfer of ownership</option>
+                          <option>Modify/Update information (Credit Card - Color - Address)</option>
+                          <option>Tempo Studio - 3D sensor issue</option>
+                          <option>Tempo Studio - Network issue</option>
+                          <option>Tempo Studio - Display issue</option>
+                          <option>Tempo Studio - Bluetooth issue</option>
+                          <option>Tempo Studio - Audio issue</option>
+                          <option>Tempo Studio - Motherboard issue</option>
+                          <option>Tempo Studio - Calories/Program issue</option>
+                          <option>Tempo Move - Core issue (HDMI, USB, Connection, etc.)</option>
+                          <option>Tempo Move - Cabinet issue (Magnetic Door, Wooden Hinge, Rubber Dumbbell Holder)</option>
+                          <option>Apple Watch issue</option>
+                          <option>HRM issue</option>
+                          <option>Mobile App issue (Android/IOS)</option>
+                          <option>Accessories issue/malfunction</option>
+                          <option>Tempo Studio - Delayed Bundle Accessories</option>
+                          <option>Tempo Move - Delayed Bundle Accessories</option>
+                          <option>Tempo Studio - Missing Accessories</option>
+                          <option>Tempo Move - Missing Accessories</option>
+                          <option>Tempo Studio - Promotions</option>
+                          <option>Tempo Move - Promotions</option>
+                          <option>Tempo Studio - Warranty</option>
+                          <option>Tempo Move - Warranty</option>
+                          <option>Tempo Studio - Physical Damage</option>
+                          <option>Tempo Move - Physical Damage</option>
+                          <option>Tempo Studio - Software</option>
+                          <option>Tempo Move - Software</option>
+                          <option>Challenges</option>
+                          <option>Join Program</option>
+                          <option>Coach Availability</option>
+                          <option>Live Class Schedule</option>
+                          <option>Account Access</option>
+                          <option>Add/Remove Profile</option>
+                          <option>Tempo Leased - Buyout</option>
+                          <option>Tempo Leased - Membership Inquiry</option>
+                          <option>Tempo Move - Churn</option>
+                          <option>Tempo Leased - Churn</option>
+                          <option>Accessories Inquiry</option>
+                          <option>Referral Program</option>
+                          <option>Membership Requirements</option>
+                          <option>Order Confirmation/Receipt</option>
+                          <option>Membership Reactivation</option>
+                          <option>Bundled Membership Request</option>
+                          <option>Bundled Membership Inquiry</option>
+                          <option>Bundled Membership Cancellation</option>
+                          <option>Apparel Promotions</option>
+                          <option>Training Plan FAQs</option>
+                          <option>Training Plan Enrollment</option>
+                          <option>Training Plan Issue</option>
+                          <option>Add/Remove Family member</option>
+                          <option>Core modification</option>
+                          <option>Upgrade/Downgrade</option>
+                        </select>
+                      </div>
+
+                      <div class="field full-span">
+                        <label for="smeGeneralComments">General Comments SME Related</label>
+                        <textarea id="smeGeneralComments" rows="3" placeholder="Add SME-related comments..."></textarea>
+                      </div>
+                      <div class="field full-span">
+                        <label for="salesComments">Sales Comments</label>
+                        <textarea id="salesComments" rows="3" placeholder="Add sales-related comments..."></textarea>
+                      </div>
+
+                      <div class="field">
+                        <label>Sales</label>
+                        <div class="sme-radio-group">
+                          <label><input type="radio" name="salesRadio" id="salesYes" value="Yes"> Yes</label>
+                          <label><input type="radio" name="salesRadio" id="salesNo" value="No"> No</label>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label>Retained</label>
+                        <div class="sme-radio-group">
+                          <label><input type="radio" name="fitnessFluency" id="fitnessFluencyYes" value="Yes"> Yes</label>
+                          <label><input type="radio" name="fitnessFluency" id="fitnessFluencyNo" value="No"> No</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Attributes pane on the right -->
+                  <div class="pane pane-scroll" id="attributesPane">
+                    <div class="attributes-groups">
+                      <div>
+                        <div class="attributes-title">Wins Attributes</div>
+                        <div id="attrGroupCustomer" class="attributes-list"></div>
+                      </div>
+                      <div style="display:none;">
+                        <div class="attributes-title">Unused</div>
+                        <div id="attrGroupProcess" class="attributes-list"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px;">
+                  <div id="attrSubtotal" class="attr-subtotal">Final Score: 0%</div>
+                  <div class="actions" style="margin-top:0;">
+                    <button id="resetBtn" type="button" class="global-btn btn-slim">Reset</button>
+                    <button id="selectAllBtn" type="button" class="global-btn btn-slim">Select All</button>
+                    <button id="previewEmailBtn" type="button" class="global-btn btn-slim">Preview Email</button>
+                    <button id="submitBtn" type="button" class="global-btn">Submit</button>
+                  </div>
+                </div>
+            </div>
+
+            <div class="global-card" style="margin-top:16px;">
+                <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;">
+                    <div class="scorecard-header" style="margin-bottom: 0; text-align: left; font-size: 20px;">Recent Submissions</div>
+                    <div style="color: var(--text-secondary); font-size: 14px;">Latest 10 scorecards</div>
+                </div>
+                <table class="recent-table" id="recentTable">
+                    <thead>
+                        <tr>
+                            <th>id</th>
+                            <th>Conversation ID</th>
+                            <th>Agent</th>
+                            <th>Channel</th>
+                            <th>Total</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="global-navigation.js?v=20260421-02"></script>
+    <script src="nov-26-wins-scorecard.js?v=20261102-01"></script>
+<script>
+  // Use the exact logo you shared
+  window.EMAIL_LOGO_URL = "https://kupaxfvjfobfdgtbfnnt.supabase.co/storage/v1/object/sign/ChatData/tempo_logo-removebg-preview.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJDaGF0RGF0YS90ZW1wb19sb2dvLXJlbW92ZWJnLXByZXZpZXcucG5nIiwiaWF0IjoxNzQyODQ1NTQzLCJleHAiOjE3NzQzODE1NDN9.cTQWItBzs3CK6vfv7A0owkDVhjX-_K1Yfw_XGF-_8Yo";
+</script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('login_token');
+            const uid = localStorage.getItem('user_id');
+            if (!token || !uid) {
+                window.location.href = '/login.html';
+                return;
+ }
+            // Debug: navigation type (reload vs navigate)
+            try {
+              const navType = (performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0] && performance.getEntriesByType('navigation')[0].type) || 'unknown';
+ } catch(_) {}
+            // Fallback restore removed
+            // try {
+            //   var conv = document.getElementById('conversationIdInput');
+            //   var icon = document.getElementById('ticketIconBtn');
+            //   var last = localStorage.getItem('t1_last_conv_id') || '';
+            //   console.log('DEBUG T1 Fallback localStorage.t1_last_conv_id:', last);
+            //   if (conv && last && (!conv.value || conv.value.trim() === '')) {
+            //     conv.value = last; conv.setAttribute('value', last);
+            //     if (icon) icon.style.display = 'inline-flex';
+            //     console.log('T1 restored from t1_last_conv_id:', last);
+            //   }
+            // } catch (_) {}
+            // Initialize page logic
+            if (window.WinsScorecard && typeof WinsScorecard.init === 'function') {
+                await WinsScorecard.init();
+ }
+            // Persist current conversation id removed
+            // try {
+            //   window.addEventListener('beforeunload', function(){
+            //     var conv = document.getElementById('conversationIdInput');
+            //     var v = (conv && conv.value) ? conv.value.trim() : '';
+            //     if (v) localStorage.setItem('t1_last_conv_id', v);
+            //   });
+            // } catch(_) {}
+ });
+    </script>
+    <!-- Email Preview Modal -->
+    <div id="emailPreviewOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:9999;">
+      <div style="background:var(--bg-card); color:var(--text-primary); width:90%; max-width:760px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.3); overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #e5e7eb;">
+          <div style="font-weight:600;">Email Preview</div>
+          <button id="emailPreviewCloseBtn" type="button" class="global-btn">Close</button>
+        </div>
+        <iframe id="emailPreviewIframe" style="width:100%; height:70vh; border:0;"></iframe>
+      </div>
+    </div>
+</body>
+<script>
+  // Late-stage restore removed
+  (function(){
+    // logic removed
+ })();
+</script>
+</html>

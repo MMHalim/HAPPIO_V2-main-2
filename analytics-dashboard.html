@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.png" type="image/png">
   <link rel="stylesheet" href="global-theme.css" />
   <script src="global-navigation.js?v=20260916-03" defer></script>
-  <script src="analytics-dashboard.js?v=7" defer></script>
+  <script src="analytics-dashboard.js?v=8" defer></script>
   <style>
     .page-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
     .scorecard-header { 
@@ -604,6 +604,45 @@
                 <th>Taker Name</th>
                 <th>Channel</th>
                 <th>Post URL</th>
+                <th>Score</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="8" style="text-align:center;">Select date range to load data</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Wins Certification Table -->
+      <div class="table-section">
+        <div class="table-header">
+          <div class="table-title">Wins Certification</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+             <div style="position:relative;">
+               <input type="text" id="winscertSearch" placeholder="Search..." class="search-box" style="padding:6px 30px 6px 6px; border:1px solid var(--border-color); border-radius:6px; font-size:14px;">
+               <span id="winscertClear" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; display:none; color:#888;">✕</span>
+             </div>
+             <button id="winscertFilterToggle" class="global-btn btn-slim">Filter</button>
+             <button id="winscertExport" class="global-btn btn-slim">Export CSV</button>
+          </div>
+        </div>
+        <div id="winscertFilterPanel" class="filter-panel" style="display:none;">
+          <div id="winscertFilterRows"></div>
+          <div class="filter-actions">
+            <button id="winscertAddFilterBtn" class="global-btn btn-slim btn-secondary">+ Add Filter</button>
+            <button id="winscertClearFilterBtn" class="global-btn btn-slim btn-secondary" style="display:none;">Clear All</button>
+          </div>
+        </div>
+        <div class="table-scroll-area">
+          <table class="analytics-table" id="winscertTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Agent</th>
+                <th>Taker Name</th>
+                <th>Result</th>
+                <th>Conversation ID</th>
                 <th>Score</th>
                 <th>Action</th>
               </tr>

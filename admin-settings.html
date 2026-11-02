@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.png" type="image/png" />
   <link rel="stylesheet" href="global-theme.css" />
   <script src="global-navigation.js?v=20260916-03" defer></script>
-  <script src="admin-settings-v2.js?v=20260915-02" defer></script>
+  <script src="admin-settings-v2.js?v=20261102-01" defer></script>
   <style>
     .page-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
     .page-header { 
@@ -348,6 +348,7 @@
     <div class="admin-layout">
       <div class="tabs-container">
         <button class="tab-btn active" data-tab="t1">T1 Attributes</button>
+        <button class="tab-btn" data-tab="wins">Wins Attributes</button>
         <button class="tab-btn" data-tab="t2os">T2 OS Attributes</button>
         <button class="tab-btn" data-tab="t2ps">T2 PS Attributes</button>
         <button class="tab-btn" data-tab="t2osnew">T2 OS New Attributes</button>
@@ -372,6 +373,20 @@
           </div>
         </div>
         <div id="t1TableContainer">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Wins Attributes -->
+    <div id="wins" class="tab-content">
+      <div class="editor-container">
+        <div class="editor-header">
+          <h3>Wins Scorecard Attributes</h3>
+          <div class="editor-actions">
+            <button class="global-btn btn-secondary" onclick="AdminSettings.discardChanges('wins')">Discard</button>
+            <button class="global-btn" onclick="AdminSettings.saveChanges('wins')">Save Changes</button>
+          </div>
+        </div>
+        <div id="winsTableContainer">Loading...</div>
       </div>
     </div>
 

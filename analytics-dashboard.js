@@ -14,14 +14,15 @@
     startISO: null, 
     endISO: null,
     configLoaded: false,
-    data: { t1: [], sms: [], social: [], t2ps: [], t2os: [], salesret: [], certification: [] },
-    filters: { t1: [], sms: [], social: [], t2ps: [], t2os: [], salesret: [], certification: [] },
+    data: { t1: [], sms: [], social: [], t2ps: [], t2os: [], salesret: [], certification: [], winscert: [] },
+    filters: { t1: [], sms: [], social: [], t2ps: [], t2os: [], salesret: [], certification: [], winscert: [] },
     smsAttributes: [],
     socialAttributes: [],
     psAttributes: [],
     t2osAttributes: [],
     salesRetAttributes: [],
-    certificationAttributes: []
+    certificationAttributes: [],
+    winsScorecardAttributes: []
  };
 
   // --- 1. Config Loading ---
@@ -42,6 +43,7 @@
       fetchNewScAttributes();
       fetchSalesRetAttributes();
       fetchCertificationAttributes();
+      fetchWinsScorecardAttributes();
 
       initRangePicker();
       initTableControls();
@@ -148,7 +150,7 @@
       let res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) {
         res = await fetch(url, { headers: authHeaders({ useServiceKey: true }) });
- }
+      }
       if (!res.ok) throw new Error(await res.text());
       const rows = await res.json();
       state.certificationAttributes = Array.isArray(rows) ? rows.map((row, idx) => ({
@@ -157,11 +159,25 @@
         Subcategory: String(pickMappedRowValue(row, ['Attribute', 'attribute', 'Subcategory', 'subcategory', 'subcategor'], '') || '').trim(),
         Criteria: String(pickMappedRowValue(row, ['Criteria', 'criteria', 'description'], '') || '').trim(),
         Score: parseAttributeScoreValue(pickMappedRowValue(row, ['Score', 'score'], 0))
- })) : [];
- } catch (e) {
+      })) : [];
+    } catch (e) {
       state.certificationAttributes = [];
- }
- }
+    }
+  }
+
+  async function fetchWinsScorecardAttributes() {
+    try {
+      const url = `${config.restUrl}/wins_scorecard_attributes?select=*&order=id.asc`;
+      let res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) {
+        res = await fetch(url, { headers: authHeaders({ useServiceKey: true }) });
+      }
+      if (!res.ok) throw new Error(await res.text());
+      state.winsScorecardAttributes = await res.json();
+    } catch (e) {
+      state.winsScorecardAttributes = [];
+    }
+  }
 
   // --- Helper: Fetch SME Users for T1 ---
   let smeUsersCache = [];
@@ -426,6 +442,12 @@
       scoreCol: 'Final_Score',
       cols: ['created_at', 'Agent_Name', 'Conversation_ID', 'Final_Score', 'id', 'Channel', 'Taker_Name', 'Phase'],
       label: 'Certification Audit'
+    },
+    winscert: {
+      name: 'wins_scorecard_submissions',
+      scoreCol: 'final_score',
+      cols: ['created_at', 'agent_name', 'conversation_id', 'final_score', 'id', 'channel', 'taker_name', 'result_status'],
+      label: 'Wins Certification'
  }
  };
 
@@ -447,7 +469,8 @@
       processScorecard('t2ps'),
       processScorecard('t2os'),
       processScorecard('salesret'),
-      processScorecard('certification')
+      processScorecard('certification'),
+      processScorecard('winscert')
     ]);
  }
 
@@ -511,7 +534,7 @@
     tbody.innerHTML = '';
 
     if (!data || data.length === 0) {
-      const colSpan = (key === 't1' || key === 'social' || key === 'certification') ? 8 : 7;
+      const colSpan = (key === 't1' || key === 'social' || key === 'certification' || key === 'winscert') ? 8 : 7;
       tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;">No records found</td></tr>`;
       return;
  }
@@ -615,6 +638,20 @@
           <td>${phase}</td>
           <td>${convId}</td>
           <td>${score || '-'}</td>
+          <td>${actionHtml}</td>
+        `;
+ } else if (key === 'winscert') {
+        const taker = getVal(['taker_name', 'Taker_Name', 'Taker Name']) || '-';
+        const result = getVal(['result_status', 'Result_Status']) || '-';
+        const scoreDisplay = score ? (String(score).endsWith('%') ? score : `${score}%`) : '-';
+        tr.innerHTML = `
+          <td>${row.id}</td>
+          <td>${dateStr}</td>
+          <td>${agent}</td>
+          <td>${taker}</td>
+          <td>${result}</td>
+          <td>${convId}</td>
+          <td>${scoreDisplay}</td>
           <td>${actionHtml}</td>
         `;
  } else {
@@ -1025,6 +1062,7 @@
     const definitions = await fetchAttributeDefinitions();
     const defMap = new Map(definitions.map(d => [d.Subcategory.trim(), d]));
     const certificationDefMap = new Map((state.certificationAttributes || []).map((d) => [String(d.Subcategory || '').trim(), d]));
+    const winsDefMap = new Map((state.winsScorecardAttributes || []).map((d) => [String(d.attribute || '').trim(), d]));
     
     body.innerHTML = ''; // Clear loading
 
@@ -1121,7 +1159,7 @@
         metaHtml += renderMetaCard('Conversation ID', '-', null, 'color:var(--text-primary);', false);
  }
  }
-    const scoreColor = (key === 'certification' && String(scoreDisplay || '').trim().toLowerCase() === 'fail')
+    const scoreColor = ((key === 'certification' || key === 'winscert') && String(scoreDisplay || '').trim().toLowerCase() === 'fail')
       ? 'color:var(--danger-color);'
       : 'color:var(--success-color);';
     metaHtml += renderMetaCard('Score', scoreDisplay, def.scoreCol, scoreColor, false, 'id="scoreDisplay"');
@@ -1284,6 +1322,60 @@
           </div>
         `;
  }
+
+      ticketSection.innerHTML += ticketHtml;
+      body.appendChild(ticketSection);
+ } else if (key === 'winscert') {
+      const ticketSection = document.createElement('div');
+      ticketSection.className = 'detail-section';
+      ticketSection.innerHTML = `<h3>Ticket Details</h3>`;
+
+      let ticketHtml = '';
+      const fields = [
+        { label: 'Monitoring Type', key: 'monitoring_type' },
+        { label: 'Ticket Status', key: 'ticket_status' },
+        { label: 'Interaction Related To', key: 'interaction_related_to' },
+        { label: 'SME Answer', key: 'sme_answer' },
+        { label: 'SME Name', key: 'sme_name' },
+        { label: 'SME Following Process', key: 'sme_following_process' },
+        { label: 'Sales', key: 'sales' },
+        { label: 'Retained Yes/No', key: 'retained_yes_no' },
+        { label: 'Certification', key: 'certification' },
+        { label: 'Calibration', key: 'calibration' },
+        { label: 'Result Status', key: 'result_status' }
+      ];
+
+      fields.forEach((f) => {
+        if (row[f.key] !== undefined && row[f.key] !== null) {
+          usedKeys.add(f.key);
+          ticketHtml += renderMetaCard(f.label, row[f.key], f.key, 'color:var(--text-primary);', true);
+        }
+      });
+
+      if (row.url) {
+        const safeUrl = String(row.url).replace(/"/g, '&quot;').trim();
+        ticketHtml += renderMetaCard('Ticket URL', `<a href="${safeUrl}" target="_blank" style="color:var(--primary-color); text-decoration:underline;">Open</a>`);
+      }
+
+      if (row.comments_sme_related !== undefined && row.comments_sme_related !== null) {
+        usedKeys.add('comments_sme_related');
+        ticketHtml += `
+          <div style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; background: var(--bg-nav-item);">
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom: 6px;">General SME Comments</div>
+            <div style="color:var(--text-primary); white-space: pre-wrap;" data-key="comments_sme_related">${row.comments_sme_related || '-'}</div>
+          </div>
+        `;
+      }
+
+      if (row.sales_comments !== undefined && row.sales_comments !== null) {
+        usedKeys.add('sales_comments');
+        ticketHtml += `
+          <div style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; background: var(--bg-nav-item);">
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom: 6px;">Sales Comments</div>
+            <div style="color:var(--text-primary); white-space: pre-wrap;" data-key="sales_comments">${row.sales_comments || '-'}</div>
+          </div>
+        `;
+      }
 
       ticketSection.innerHTML += ticketHtml;
       body.appendChild(ticketSection);
@@ -2017,6 +2109,50 @@
         usedKeys.add(attr.scoreKey);
         usedKeys.add(attr.commentKey);
  });
+ } else if (key === 'winscert') {
+      const winsAttributes = [
+        {
+          label: 'Engagement And Discovery',
+          scoreKey: 'engagement_and_discovery',
+          commentKey: 'engagement_and_discovery_comment'
+        },
+        {
+          label: 'Value Positioning',
+          scoreKey: 'value_positioning',
+          commentKey: 'value_positioning_comment'
+        },
+        {
+          label: 'Objection Handling & Risistance',
+          scoreKey: 'objection_handling_risistance',
+          commentKey: 'objection_handling_risistance_comment'
+        },
+        {
+          label: 'Win Skills',
+          scoreKey: 'win_skills',
+          commentKey: 'win_skills_comment'
+        },
+        {
+          label: 'Process & Compliance',
+          scoreKey: 'process_compliance',
+          commentKey: 'process_compliance_comment'
+        }
+      ];
+
+      winsAttributes.forEach((attr) => {
+        const meta = winsDefMap.get(attr.label) || {};
+        attributes.push({
+          label: attr.label,
+          description: String(meta.description || meta.Criteria || '').trim(),
+          score: row[attr.scoreKey],
+          scoreKey: attr.scoreKey,
+          comment: row[attr.commentKey] || '',
+          commentKey: attr.commentKey,
+          maxScore: meta.score ?? meta.Score ?? null
+        });
+
+        usedKeys.add(attr.scoreKey);
+        usedKeys.add(attr.commentKey);
+      });
  } else {
       // GENERIC LOGIC (T1, T2PS, T2OS)
       const keys = Object.keys(row).sort();
@@ -2411,7 +2547,7 @@
     processedAttributes = Array.from(uniqueAttrs.values());
 
     // 2. Sort by FULL_DISPLAY_ORDER (Skip for SMS and T2 PS as they are already ordered)
-    if (key !== 'sms' && key !== 't2ps' && key !== 't2os' && key !== 'salesret' && key !== 'certification') {
+    if (key !== 'sms' && key !== 't2ps' && key !== 't2os' && key !== 'salesret' && key !== 'certification' && key !== 'winscert') {
         processedAttributes.sort((a, b) => {
             const idxA = FULL_DISPLAY_ORDER.indexOf(a.label);
             const idxB = FULL_DISPLAY_ORDER.indexOf(b.label);
@@ -2427,7 +2563,7 @@
     const group1 = [];
     const group2 = [];
 
-    if (key === 'sms' || key === 't2ps' || key === 't2os' || key === 'salesret' || key === 'certification') {
+    if (key === 'sms' || key === 't2ps' || key === 't2os' || key === 'salesret' || key === 'certification' || key === 'winscert') {
         group2.push(...processedAttributes);
  } else {
         processedAttributes.forEach(attr => {
@@ -2873,7 +3009,7 @@
  } else if (!isNaN(computedScore)) {
           // SMS scorecard and T1/T2 PS scorecard convention is to store score as string with % (e.g. "85%")
           // Updated: T2 OS (T2_OS_NEW_2025) also requires % format as per user request
-           if (def.name === 'sms_scorecard' || def.name === 'T1_QA_New_Scorecards' || def.name === 't2_ps_scorecards' || def.name === 'T2_OS_NEW_2025' || def.name === 'MX_Social_Media_Scorecard' || def.name === 'sales_ret_audits') {
+           if (def.name === 'sms_scorecard' || def.name === 'T1_QA_New_Scorecards' || def.name === 't2_ps_scorecards' || def.name === 'T2_OS_NEW_2025' || def.name === 'MX_Social_Media_Scorecard' || def.name === 'sales_ret_audits' || def.name === 'wins_scorecard_submissions') {
              updates[def.scoreCol] = `${computedScore}%`;
  } else {
             updates[def.scoreCol] = computedScore;

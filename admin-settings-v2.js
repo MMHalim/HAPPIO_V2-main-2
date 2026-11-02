@@ -10,6 +10,7 @@ const AdminSettings = (function() {
     // State to hold original data for discard functionality
     const state = {
         t1: [],
+        wins: [],
         t2os: [],
         t2ps: [],
         t2osnew: [],
@@ -23,6 +24,7 @@ const AdminSettings = (function() {
     // Modified data (tracking changes)
     const modifiedState = {
         t1: [],
+        wins: [],
         t2os: [],
         t2ps: [],
         t2osnew: [],
@@ -155,6 +157,7 @@ const AdminSettings = (function() {
     function loadTabContent(tabId) {
         switch(tabId) {
             case 't1': fetchAttributes('T1_SC_Att', 't1'); break;
+            case 'wins': fetchAttributes('winsAttributes', 'wins'); break;
             case 't2os': fetchAttributes('New_SC_Attributes', 't2os'); break;
             case 't2ps': fetchAttributes('ps_attributes', 't2ps'); break;
             case 't2osnew': fetchAttributes('sales_ret_att', 't2osnew'); break;
@@ -579,6 +582,7 @@ const AdminSettings = (function() {
     function getAttributesConfig(tabKey) {
         const map = {
             t1: { tableName: 'T1_SC_Att', idField: 'ID', categoryField: 'Subcategory', criteriaField: 'Criteria', scoreField: 'Score', categoryLabel: 'Subcategory', criteriaLabel: 'Criteria', omitIdOnInsert: true, scoreInputType: 'number' },
+            wins: { tableName: 'winsAttributes', idField: 'id', categoryField: 'category', criteriaField: 'criteria', scoreField: 'score', categoryLabel: 'Category', criteriaLabel: 'Criteria', omitIdOnInsert: true, scoreInputType: 'number' },
             t2os: { tableName: 'New_SC_Attributes', idField: 'ID', categoryField: 'Subcategory', criteriaField: 'Criteria', scoreField: 'Score', categoryLabel: 'Subcategory', criteriaLabel: 'Criteria', omitIdOnInsert: true, scoreInputType: 'number' },
             t2ps: { tableName: 'ps_attributes', idField: 'ID', categoryField: 'Subcategory', criteriaField: 'Criteria', scoreField: 'Score', categoryLabel: 'Subcategory', criteriaLabel: 'Criteria', omitIdOnInsert: true, scoreInputType: 'number' },
             t2osnew: { tableName: 'sales_ret_att', idField: 'id', categoryField: 'subcategory', criteriaField: 'criteria', scoreField: 'score', categoryLabel: 'Subcategory', criteriaLabel: 'Criteria', omitIdOnInsert: true, scoreInputType: 'text' },
