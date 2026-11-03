@@ -683,11 +683,11 @@ const WinsScorecard = (function() {
   function updateConversationIdState() {
     const input = document.getElementById('conversationIdInput');
     if (!input) return;
-    const certYes = document.querySelector('input[name="certification"][value="Yes"]');
-    const isCertification = !!(certYes && certYes.checked);
+    const monitoringType = document.getElementById('monitoringType');
+    const isSelectedMode = !!(monitoringType && monitoringType.value === 'Selected');
 
-    // Wins rule: Conversation ID is editable only for Certification = Yes.
-    input.disabled = !isCertification;
+    // Manual conversation entry is only allowed when Monitoring Type is "Selected".
+    input.disabled = !isSelectedMode;
  }
 
   async function syncT1Config() {
@@ -1033,29 +1033,11 @@ const WinsScorecard = (function() {
 
   async function loadAgents() {
     try {
-      const normalizeRoles = (value) => {
-        if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
-        if (typeof value !== 'string') return [];
-        const s = value.trim();
-        if (!s) return [];
-        try {
-          const parsed = JSON.parse(s);
-          if (Array.isArray(parsed)) return parsed.map(v => String(v).trim()).filter(Boolean);
- } catch (_) {}
-        return s.replace(/\s*\+\s*/g, ',').split(/[,;|]/).map(v => v.trim()).filter(Boolean);
- };
-      const hasAnyRole = (value, required) => {
-        const roles = normalizeRoles(value).map(r => r.toLowerCase());
-        return required.some(r => roles.includes(String(r).toLowerCase()));
- };
-
       const urlAll = `${config.restUrl}/users?select=id,Name,email,user_role&order=Name.asc`;
       let res = await fetch(urlAll, { headers: authHeaders() });
       if (!res.ok) res = await fetch(urlAll, { headers: authHeaders({ useServiceKey: true }) });
       let rows = res.ok ? await res.json() : [];
-
-      const requiredRoles = ['MX-T1 User', 'Administrator'];
-      rows = Array.isArray(rows) ? rows.filter(u => hasAnyRole(u.user_role, requiredRoles)) : [];
+      rows = Array.isArray(rows) ? rows : [];
 
       const sel = document.getElementById('agentNameSelect');
       const ddInput = document.getElementById('agentDropdownInput');
@@ -1066,7 +1048,17 @@ const WinsScorecard = (function() {
       // Clear and populate
       sel.innerHTML = '<option value="">Select agent</option>';
       // Cache agents for search filtering
-      sel._allAgents = (rows||[]).map(u => ({ id: u.id, name: u.Name || u.email || 'Unknown', email: u.email || '' }));
+      const seenAgentKeys = new Set();
+      sel._allAgents = (rows || []).map(u => ({
+        id: u.id,
+        name: (u.Name || u.email || 'Unknown').toString().trim(),
+        email: (u.email || '').toString().trim()
+      })).filter((u) => {
+        const key = `${u.id}::${u.name}::${u.email}`.toLowerCase();
+        if (seenAgentKeys.has(key)) return false;
+        seenAgentKeys.add(key);
+        return true;
+      });
       function renderSelect(list) {
         sel.innerHTML = '<option value="">Select agent</option>';
         list.forEach(u => {
