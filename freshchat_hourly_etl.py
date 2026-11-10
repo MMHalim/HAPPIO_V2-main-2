@@ -145,11 +145,13 @@ def fill_missing_timestamps_from_interaction_id(df):
 
     for col in created_epoch_cols:
         if col in df.columns:
+            df[col] = df[col].astype("object")
             mask = _is_missing(df[col]) & epoch_ms.notna()
             if mask.any():
                 df.loc[mask, col] = epoch_ms.loc[mask].astype("Int64").astype(str)
 
     if "created_timestamp" in df.columns:
+        df["created_timestamp"] = df["created_timestamp"].astype("object")
         mask = _is_missing(df["created_timestamp"]) & dt_cairo.notna()
         if mask.any():
             df.loc[mask, "created_timestamp"] = _format_cairo_with_ms(dt_cairo.loc[mask])
@@ -182,6 +184,7 @@ def fill_missing_timestamps_from_interaction_id(df):
         ("Day", lambda s: s.dt.day.astype("Int64").astype(str)),
     ]:
         if col in df.columns:
+            df[col] = df[col].astype("object")
             mask = _is_missing(df[col]) & dt_cairo.notna()
             if mask.any():
                 df.loc[mask, col] = getter(dt_cairo.loc[mask])
@@ -427,6 +430,12 @@ def upload_to_google_sheets(client, df, sheet_name):
         print(f"Worksheet '{sheet_name}' not found. Creating it...")
         worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="1000", cols="20")
 
+    existing_headers = []
+    try:
+        existing_headers = worksheet.row_values(1)
+    except Exception:
+        existing_headers = []
+
     # Clear sheet
     worksheet.clear()
     try:
@@ -454,6 +463,13 @@ def upload_to_google_sheets(client, df, sheet_name):
 
     # Replace NaN with empty string
     df = df.fillna("").astype(str)
+
+    if len(df.columns) == 0 and existing_headers:
+        print(f"'{sheet_name}' export returned no columns. Preserving existing headers with 0 data rows.")
+        data = [existing_headers]
+        worksheet.update("A1", data, value_input_option="RAW")
+        print(f"Google Sheet '{sheet_name}' updated successfully with existing headers only.")
+        return
 
     # Write headers + data starting row 1 (A1)
     data = [df.columns.tolist()] + df.values.tolist()
