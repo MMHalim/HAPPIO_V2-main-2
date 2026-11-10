@@ -48,6 +48,8 @@ const AdminSettings = (function() {
         pageSize: 25,
         total: 0
  };
+    const ETL_GITHUB_REPO = 'MMHalim/HAPPIO_V2-main-2';
+    const ETL_LEGACY_REPOS = new Set(['MMHalim/HAPPIO_V2']);
 
     function loadConfig() {
         return fetch('database_config.json')
@@ -304,7 +306,9 @@ const AdminSettings = (function() {
  }
         if (savedRepo) {
             const repoInput = document.getElementById('gh-repo');
-            if (repoInput) repoInput.value = savedRepo;
+            const normalizedRepo = ETL_LEGACY_REPOS.has(savedRepo) ? ETL_GITHUB_REPO : savedRepo;
+            if (repoInput) repoInput.value = normalizedRepo;
+            if (normalizedRepo !== savedRepo) localStorage.setItem('github_repo', normalizedRepo);
  }
         if (savedBranch) {
             const branchInput = document.getElementById('gh-branch');
@@ -330,7 +334,8 @@ const AdminSettings = (function() {
         const toInput = document.getElementById('gh-to-cairo');
         
         const token = tokenInput ? tokenInput.value.trim() : '';
-        const repoStr = repoInput ? repoInput.value.trim() : '';
+        const rawRepoStr = repoInput ? repoInput.value.trim() : '';
+        const repoStr = ETL_LEGACY_REPOS.has(rawRepoStr) ? ETL_GITHUB_REPO : rawRepoStr;
         const branch = branchInput ? branchInput.value.trim() : 'main';
         const fromCairo = fromInput ? fromInput.value.trim() : '';
         const toCairo = toInput ? toInput.value.trim() : '';
@@ -357,6 +362,7 @@ const AdminSettings = (function() {
         localStorage.setItem('github_branch', branch);
         localStorage.setItem('github_from_cairo', fromCairo);
         localStorage.setItem('github_to_cairo', toCairo);
+        if (repoInput) repoInput.value = repoStr;
 
         const [owner, repo] = repoStr.split('/');
         const workflowFile = 'freshchat_etl.yml';
