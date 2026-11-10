@@ -402,7 +402,11 @@ def extract_csv_from_zip(zip_content):
         for file_name in z.namelist():
             if file_name.endswith(".csv"):
                 with z.open(file_name) as f:
-                    return pd.read_csv(f)
+                    try:
+                        return pd.read_csv(f)
+                    except pd.errors.EmptyDataError:
+                        print(f"CSV '{file_name}' inside ZIP was empty. Treating it as 0 rows.")
+                        return pd.DataFrame()
     raise Exception("No CSV found inside ZIP")
 
 
@@ -600,6 +604,13 @@ def run_job():
 
     # 6. Read 'Upload' Sheet & Push to Supabase
     print("\n--- PHASE 3: Upload to Supabase ---")
+    if had_errors:
+        print("Skipping Supabase upload because at least one export/sheet update failed.")
+        log_to_supabase("Supabase_Upload", "SKIPPED", "Skipped because Phase 1 had one or more failures")
+        print("\nAll jobs finished.")
+        log_to_supabase("ETL_RUN", "FAILED", "Run finished with Phase 1 failures")
+        return
+
     try:
         log_to_supabase("Supabase_Upload", "INFO", "Reading rows from Upload sheet")
         upload_data = read_sheet_data(client, "Upload")
