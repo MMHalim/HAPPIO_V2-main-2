@@ -189,6 +189,21 @@ const DB_ATTRIBUTES_SMS = [
   { label: 'Engagement', key: 'Personalized_Customer_Engagement', commentKey: 'com_Personalized_Customer_Engagement' }
 ];
 
+const DB_ATTRIBUTES_WINS = [
+  { label: 'Brand Energy & Protocol', key: 'brand_energy_protocol', commentKey: 'brand_energy_protocol_comment' },
+  { label: 'Discovery & History Review', key: 'discovery_history_review', commentKey: 'discovery_history_review_comment' },
+  { label: 'Clarity and Concise Explaination', key: 'clarity_and_concise_explaination', commentKey: 'clarity_and_concise_explaination_comment' },
+  { label: 'Human Engagement & Soft Skills', key: 'human_engagement_soft_skills', commentKey: 'human_engagement_soft_skills_comment' },
+  { label: 'Value Positioning & Objection Handling', key: 'value_positioning_objection_handling', commentKey: 'value_positioning_objection_handling_comment' },
+  { label: 'Tailored Concessions & Alternatives', key: 'tailored_concessions_alternatives', commentKey: 'tailored_concessions_alternatives_comment' },
+  { label: 'Closing & FCR', key: 'closing_fcr', commentKey: 'closing_fcr_comment' },
+  { label: 'Product Awareness', key: 'product_awareness', commentKey: 'product_awareness_comment' },
+  { label: 'Brand Representation and Ownership', key: 'brand_representation_ownership', commentKey: 'brand_representation_ownership_comment' },
+  { label: 'Process Awareness', key: 'process_awareness', commentKey: 'process_awareness_comment' },
+  { label: 'Verfication', key: 'verfication', commentKey: 'verfication_comment' },
+  { label: 'Documentation & CRM Updates', key: 'documentation_crm_updates', commentKey: 'documentation_crm_updates_comment' }
+];
+
 // Default to T2 OS attributes
 let currentAttributes = DB_ATTRIBUTES_T2;
 let lastResults = [];
@@ -780,6 +795,8 @@ async function handleQueueChange() {
       url = `${config.restUrl}/Assigning_Calibration?Score_card=eq.SMS_Scorecard&select=Conversation_Id,day,Score_card,type&order=day.desc`;
  } else if (queue === 'MX-T1') {
       url = `${config.restUrl}/Assigning_Calibration?Score_card=eq.MX-T1_Scorecard&select=Conversation_Id,day,Score_card,type&order=day.desc`;
+ } else if (queue === 'Wins') {
+      url = `${config.restUrl}/Assigning_Calibration?Score_card=eq.Wins_Scorecard&select=Conversation_Id,day,Score_card,type&order=day.desc`;
  }
 
     if (url) {
@@ -858,6 +875,8 @@ async function loadResults() {
     currentAttributes = DB_ATTRIBUTES_SMS;
  } else if (queue === 'MX-T1') {
     currentAttributes = DB_ATTRIBUTES_T1;
+ } else if (queue === 'Wins') {
+    currentAttributes = DB_ATTRIBUTES_WINS;
  } else if (queue === 'Order Support') {
     currentAttributes = DB_ATTRIBUTES_SALES_RET_CALIBRATION;
  } else {
@@ -923,6 +942,8 @@ async function fetchCalibrationData(convId, queue) {
     tableName = 'Calibration_T1_QA_New_Scorecards';
  } else if (queue === 'Order Support') {
     tableName = 'sales_ret_calibration';
+ } else if (queue === 'Wins') {
+    tableName = 'winsAuditSubmissions';
  } else {
     // Default for Sales (T2 OS)
     tableName = 'calibration_T2_OS_NEW';
@@ -935,7 +956,11 @@ async function fetchCalibrationData(convId, queue) {
   // Let's assume 'Conversation_ID' works for T2, check others if needed.
   // Actually, standardizing on what works for T2 first, then special case if error.
   
-  url = `${config.restUrl}/${tableName}?Conversation_ID=eq.${encodeURIComponent(convId)}`;
+  if (queue === 'Wins') {
+    url = `${config.restUrl}/${tableName}?conversation_id=eq.${encodeURIComponent(convId)}&calibration=eq.Yes&order=created_at.asc`;
+  } else {
+    url = `${config.restUrl}/${tableName}?Conversation_ID=eq.${encodeURIComponent(convId)}`;
+  }
   
   if (queue === 'Sales' || queue === 'Order Support') {
     url += `&queue=eq.${encodeURIComponent(queue)}`;
@@ -960,7 +985,16 @@ async function fetchCalibrationData(convId, queue) {
 
     throw new Error(text);
  }
-  return await res.json();
+  const rows = await res.json();
+  if (queue === 'Wins') {
+    return (Array.isArray(rows) ? rows : []).map((row) => ({
+      ...row,
+      Taker_Name: row.Taker_Name || row.taker_name || '',
+      Agent_Name: row.Agent_Name || row.agent_name || '',
+      Conversation_ID: row.Conversation_ID || row.conversation_id || ''
+    }));
+  }
+  return rows;
 }
 
 function renderTable(data, container, emailMap) {
@@ -1342,8 +1376,10 @@ async function fetchCalibrationCompleted(convId, queue) {
   let typeFilter = '';
   if (queue === 'MX-T1') {
     scorecardValue = 'MX-T1_Scorecard';
- } else if (queue === 'SMS') {
+  } else if (queue === 'SMS') {
     scorecardValue = 'SMS_Scorecard';
+ } else if (queue === 'Wins') {
+    scorecardValue = 'Wins_Scorecard';
  } else if (queue === 'Sales' || queue === 'Order Support') {
     scorecardValue = 'MX-T2_OS Scorecard';
     typeFilter = queue;
@@ -1377,8 +1413,10 @@ async function markCalibrationCompleted(convId, queue) {
   let typeFilter = '';
   if (queue === 'MX-T1') {
     scorecardValue = 'MX-T1_Scorecard';
- } else if (queue === 'SMS') {
+  } else if (queue === 'SMS') {
     scorecardValue = 'SMS_Scorecard';
+ } else if (queue === 'Wins') {
+    scorecardValue = 'Wins_Scorecard';
  } else if (queue === 'Sales' || queue === 'Order Support') {
     scorecardValue = 'MX-T2_OS Scorecard';
     typeFilter = queue;

@@ -658,11 +658,6 @@ const WinsScorecard = (function() {
  }
  }
  });
-    // Certification/Calibration default to No
-    const certNo = document.querySelector('input[name="certification"][value="No"]');
-    if (certNo) { certNo.checked = true; certNo.dispatchEvent(new Event('change', {bubbles:true})); }
-    const calibNo = document.querySelector('input[name="calibration"][value="No"]');
-    if (calibNo) { calibNo.checked = true; calibNo.dispatchEvent(new Event('change', {bubbles:true})); }
     updateAttrSubtotal();
  }
 
@@ -797,11 +792,6 @@ const WinsScorecard = (function() {
  });
       if (maxRadio) maxRadio.checked = true;
  });
-    // For Certification/Calibration default to No
-    const certNo = document.querySelector('input[name="certification"][value="No"]');
-    if (certNo) { certNo.checked = true; certNo.dispatchEvent(new Event('change', {bubbles:true})); }
-    const calibNo = document.querySelector('input[name="calibration"][value="No"]');
-    if (calibNo) { calibNo.checked = true; calibNo.dispatchEvent(new Event('change', {bubbles:true})); }
  }
 
   function ymdParts(dateStr) {
@@ -1177,10 +1167,10 @@ const WinsScorecard = (function() {
 
         return data;
  }
-      const urlLatest = `${base}?${select}&Score_card=eq.MX-T1_Scorecard&order=day.desc&limit=1`;
-      const rows = await fetchWithAuth(urlLatest, 't1-eq-day');
+      const urlLatest = `${base}?${select}&Score_card=eq.Wins_Scorecard&order=day.desc&limit=1`;
+      const rows = await fetchWithAuth(urlLatest, 'wins-eq-day');
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        showAlert('No calibration cases found for MX-T1_Scorecard.');
+        showAlert('No calibration cases found for Wins_Scorecard.');
         calibrationMode = false;
         return;
  }
