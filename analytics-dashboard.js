@@ -2928,6 +2928,7 @@
             'sme_answer': ['Yes', 'No', 'N/A'],
             'sme_following_process': ['Yes', 'No', 'N/A'],
             'sales': ['Yes', 'No'],
+            'result_status': ['PASS', 'FAIL'],
             'phase': ['Certification', 'OJT']
  };
         
@@ -3120,7 +3121,11 @@
 
         inputs.forEach(input => {
           const key = input.getAttribute('data-editing-key');
-          const val = input.value;
+          let val = input.value;
+          if (key === 'result_status') {
+            const normalized = String(val || '').trim().toUpperCase();
+            if (normalized === 'PASS' || normalized === 'FAIL') val = normalized;
+          }
           // Loose equality check to avoid string/number mismatch false positives
           if (String(row[key]) != String(val)) {
             updates[key] = val;

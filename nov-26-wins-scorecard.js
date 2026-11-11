@@ -679,10 +679,13 @@ const WinsScorecard = (function() {
     const input = document.getElementById('conversationIdInput');
     if (!input) return;
     const monitoringType = document.getElementById('monitoringType');
-    const isSelectedMode = !!(monitoringType && monitoringType.value === 'Selected');
+    const allowsManualConversationId = !!(
+      monitoringType &&
+      (monitoringType.value === 'Selected' || monitoringType.value === 'SBS')
+    );
 
-    // Manual conversation entry is only allowed when Monitoring Type is "Selected".
-    input.disabled = !isSelectedMode;
+    // Manual conversation entry is allowed for Selected and SBS flows.
+    input.disabled = !allowsManualConversationId;
  }
 
   async function syncT1Config() {
