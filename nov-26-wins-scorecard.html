@@ -341,6 +341,29 @@
             color: var(--text-secondary);
             background: var(--bg-nav-item);
  }
+        #calibrationQueueModalOverlay {
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 18vh;
+        }
+        #calibrationQueueModalOverlay .global-modal {
+            background: #1e293b;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+        }
+        #calibrationQueueModalOverlay .global-card-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        #calibrationQueueModalOverlay .global-card-subtitle {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+        [data-theme="light"] #calibrationQueueModalOverlay .global-modal {
+            background: #ffffff;
+        }
         [data-theme="light"] .global-modal { background: var(--bg-card); color: var(--text-primary); }
 
         /* Make the first form section more compact */
@@ -491,7 +514,7 @@
                         <div class="action-box btn-stack">
                             <button id="getCaseBtn" class="global-btn btn-slim">Get Case</button>
                             <button id="skipBtn" class="global-btn btn-slim">Skip</button>
-                            <button id="calibrationBtn" class="global-btn btn-slim" style="display:none;">Calibration</button>
+                            <button id="calibrationBtn" class="global-btn btn-slim">Calibration</button>
                         </div>
                     </div>
                 </div>
@@ -574,6 +597,20 @@
                 <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
                   <button id="skipModalCancelBtn" class="global-btn global-btn-secondary">Cancel</button>
                   <button id="skipModalConfirmBtn" class="global-btn">Confirm</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="calibrationQueueModalOverlay" class="global-modal-overlay" style="display:none;">
+              <div class="global-modal" style="max-width:420px;">
+                <div class="global-card-title">Calibration Queue</div>
+                <div class="global-card-subtitle" style="margin-top:8px;">Choose which Wins calibration queue to load.</div>
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                  <button id="calibrationRetentionBtn" class="global-btn" type="button">Retention</button>
+                  <button id="calibrationSalesBtn" class="global-btn" type="button">Sales</button>
+                </div>
+                <div class="modal-actions" style="display:flex; justify-content:flex-end; margin-top:16px;">
+                  <button id="calibrationQueueCancelBtn" class="global-btn global-btn-secondary" type="button">Cancel</button>
                 </div>
               </div>
             </div>

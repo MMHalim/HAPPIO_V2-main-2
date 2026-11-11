@@ -6,6 +6,17 @@ const config = {
   serviceKey: null
 };
 
+function isRetentionQueue(queue) {
+  return queue === 'Retention' || queue === 'Order Support';
+}
+
+function buildAliasOrFilter(column, values) {
+  const validValues = (values || []).filter(Boolean);
+  if (!validValues.length) return '';
+  const clauses = validValues.map((value) => `${column}.eq.${encodeURIComponent(value)}`);
+  return `or=(${clauses.join(',')})`;
+}
+
 function showAlert(msg, opts = {}) {
   try {
     const options = typeof opts === 'object' && opts ? opts : {};
@@ -789,8 +800,10 @@ async function handleQueueChange() {
   try {
     let url = '';
     
-    if (queue === 'Order Support' || queue === 'Sales') {
+    if (queue === 'Sales') {
       url = `${config.restUrl}/Assigning_Calibration?type=eq.${encodeURIComponent(queue)}&select=Conversation_Id,day,Score_card,type&order=day.desc`;
+ } else if (isRetentionQueue(queue)) {
+      url = `${config.restUrl}/Assigning_Calibration?${buildAliasOrFilter('type', ['Retention', 'Order Support'])}&select=Conversation_Id,day,Score_card,type&order=day.desc`;
  } else if (queue === 'SMS') {
       url = `${config.restUrl}/Assigning_Calibration?Score_card=eq.SMS_Scorecard&select=Conversation_Id,day,Score_card,type&order=day.desc`;
  } else if (queue === 'MX-T1') {
@@ -877,7 +890,7 @@ async function loadResults() {
     currentAttributes = DB_ATTRIBUTES_T1;
  } else if (queue === 'Wins') {
     currentAttributes = DB_ATTRIBUTES_WINS;
- } else if (queue === 'Order Support') {
+ } else if (isRetentionQueue(queue)) {
     currentAttributes = DB_ATTRIBUTES_SALES_RET_CALIBRATION;
  } else {
     currentAttributes = DB_ATTRIBUTES_T2;
@@ -940,7 +953,7 @@ async function fetchCalibrationData(convId, queue) {
     tableName = 'calibration_sms';
  } else if (queue === 'MX-T1') {
     tableName = 'Calibration_T1_QA_New_Scorecards';
- } else if (queue === 'Order Support') {
+ } else if (isRetentionQueue(queue)) {
     tableName = 'sales_ret_calibration';
  } else if (queue === 'Wins') {
     tableName = 'winsAuditSubmissions';
@@ -962,8 +975,10 @@ async function fetchCalibrationData(convId, queue) {
     url = `${config.restUrl}/${tableName}?Conversation_ID=eq.${encodeURIComponent(convId)}`;
   }
   
-  if (queue === 'Sales' || queue === 'Order Support') {
+  if (queue === 'Sales') {
     url += `&queue=eq.${encodeURIComponent(queue)}`;
+ } else if (isRetentionQueue(queue)) {
+    url += `&${buildAliasOrFilter('queue', ['Retention', 'Order Support'])}`;
  }
   
   // Use Service Key to bypass RLS policies for calibration view
@@ -1380,9 +1395,9 @@ async function fetchCalibrationCompleted(convId, queue) {
     scorecardValue = 'SMS_Scorecard';
  } else if (queue === 'Wins') {
     scorecardValue = 'Wins_Scorecard';
- } else if (queue === 'Sales' || queue === 'Order Support') {
+ } else if (queue === 'Sales' || isRetentionQueue(queue)) {
     scorecardValue = 'MX-T2_OS Scorecard';
-    typeFilter = queue;
+    typeFilter = queue === 'Sales' ? 'Sales' : '';
  }
   let url = `${config.restUrl}/Assigning_Calibration?Conversation_Id=eq.${encodeURIComponent(convId)}&select=completed&limit=1`;
   if (scorecardValue) {
@@ -1390,6 +1405,8 @@ async function fetchCalibrationCompleted(convId, queue) {
  }
    if (typeFilter) {
      url += `&type=eq.${encodeURIComponent(typeFilter)}`;
+ } else if (isRetentionQueue(queue)) {
+     url += `&${buildAliasOrFilter('type', ['Retention', 'Order Support'])}`;
  }
   const res = await fetch(url, { headers: authHeaders({ useServiceKey: true }) });
   if (!res.ok) return false;
@@ -1417,9 +1434,9 @@ async function markCalibrationCompleted(convId, queue) {
     scorecardValue = 'SMS_Scorecard';
  } else if (queue === 'Wins') {
     scorecardValue = 'Wins_Scorecard';
- } else if (queue === 'Sales' || queue === 'Order Support') {
+ } else if (queue === 'Sales' || isRetentionQueue(queue)) {
     scorecardValue = 'MX-T2_OS Scorecard';
-    typeFilter = queue;
+    typeFilter = queue === 'Sales' ? 'Sales' : '';
  }
   let url = `${config.restUrl}/Assigning_Calibration?Conversation_Id=eq.${encodeURIComponent(convId)}`;
   if (scorecardValue) {
@@ -1427,6 +1444,8 @@ async function markCalibrationCompleted(convId, queue) {
  }
   if (typeFilter) {
     url += `&type=eq.${encodeURIComponent(typeFilter)}`;
+ } else if (isRetentionQueue(queue)) {
+    url += `&${buildAliasOrFilter('type', ['Retention', 'Order Support'])}`;
  }
   const res = await fetch(url, {
     method: 'PATCH',

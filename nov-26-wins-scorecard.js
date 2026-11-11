@@ -1139,11 +1139,31 @@ const WinsScorecard = (function() {
  }
  }
 
-  async function loadCalibrationCase() {
+  function setWinsCalibrationConversation(convId) {
+    const normalizedConvId = String(convId || '').trim();
+    const convInput = document.getElementById('conversationIdInput');
+    if (convInput) {
+      convInput.value = normalizedConvId;
+      convInput.setAttribute('value', normalizedConvId);
+      convInput.dispatchEvent(new Event('input'));
+      convInput.dispatchEvent(new Event('change'));
+    }
+    const icon = document.getElementById('ticketIconBtn');
+    if (icon) icon.style.display = normalizedConvId ? 'inline-flex' : 'none';
+    const calibYes = document.querySelector('input[name="calibration"][value="Yes"]');
+    if (calibYes) {
+      calibYes.checked = true;
+      calibYes.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  async function loadCalibrationCase(queueType) {
     try {
       calibrationMode = false;
       const base = `${config.restUrl}/Assigning_Calibration`;
-      const select = 'select=Conversation_Id,day,Score_card,id';
+      const normalizedType = String(queueType || '').trim();
+      const requestedType = normalizedType.toLowerCase();
+      const select = 'select=Conversation_Id,day,Score_card,id,type';
       async function fetchWithAuth(url, label) {
         let res = await fetch(url, { headers: authHeaders() });
         let data = [];
@@ -1167,10 +1187,25 @@ const WinsScorecard = (function() {
 
         return data;
  }
-      const urlLatest = `${base}?${select}&Score_card=eq.Wins_Scorecard&order=day.desc&limit=1`;
-      const rows = await fetchWithAuth(urlLatest, 'wins-eq-day');
+      if (!requestedType) {
+        showAlert('Please choose a calibration queue.');
+        return;
+      }
+      const urlLatest = `${base}?${select}&Score_card=eq.Wins_Scorecard&order=id.desc&limit=50`;
+      const fetchedRows = await fetchWithAuth(urlLatest, `wins-${requestedType}`);
+      const normalizedRows = Array.isArray(fetchedRows) ? fetchedRows : [];
+      let rows = normalizedRows.filter((item) => {
+        const itemType = String(item?.type || '').trim().toLowerCase();
+        return itemType === requestedType;
+      });
+      if (!rows.length && requestedType === 'retention') {
+        rows = normalizedRows.filter((item) => {
+          const itemType = String(item?.type || '').trim().toLowerCase();
+          return itemType === 'order support';
+        });
+      }
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        showAlert('No calibration cases found for Wins_Scorecard.');
+        showAlert(`No calibration cases found for ${normalizedType}.`);
         calibrationMode = false;
         return;
  }
@@ -1181,20 +1216,7 @@ const WinsScorecard = (function() {
         calibrationMode = false;
         return;
  }
-      const convInput = document.getElementById('conversationIdInput');
-      if (convInput) {
-        convInput.value = convId;
-        convInput.setAttribute('value', convId);
-        convInput.dispatchEvent(new Event('input'));
-        convInput.dispatchEvent(new Event('change'));
- }
-      const icon = document.getElementById('ticketIconBtn');
-      if (icon && convId) icon.style.display = 'inline-flex';
-      const calibYes = document.querySelector('input[name="calibration"][value="Yes"]');
-      if (calibYes) {
-        calibYes.checked = true;
-        calibYes.dispatchEvent(new Event('change', { bubbles: true }));
- }
+      setWinsCalibrationConversation(convId);
       calibrationMode = true;
       const agentSel = document.getElementById('agentNameSelect');
       const agentDdInput = document.getElementById('agentDropdownInput');
@@ -1217,7 +1239,7 @@ const WinsScorecard = (function() {
           agentSel.dispatchEvent(new Event('change'));
  }
  }
-      showAlert(`Calibration conversation loaded: ${convId}`, { type: 'success' });
+      showAlert(`${normalizedType} calibration conversation loaded: ${convId}`, { type: 'success' });
  } catch (err) {
       console.error('Failed to load calibration case', err);
       showAlert('Failed to load calibration case. Please try again.');
@@ -2444,7 +2466,26 @@ const WinsScorecard = (function() {
  }
  });
     const calibrationBtn = document.getElementById('calibrationBtn');
-    if (calibrationBtn) calibrationBtn.addEventListener('click', loadCalibrationCase);
+    const calibrationQueueModal = document.getElementById('calibrationQueueModalOverlay');
+    const calibrationRetentionBtn = document.getElementById('calibrationRetentionBtn');
+    const calibrationSalesBtn = document.getElementById('calibrationSalesBtn');
+    const calibrationQueueCancelBtn = document.getElementById('calibrationQueueCancelBtn');
+    const openCalibrationQueueModal = () => {
+      if (calibrationQueueModal) calibrationQueueModal.style.display = 'flex';
+    };
+    const closeCalibrationQueueModal = () => {
+      if (calibrationQueueModal) calibrationQueueModal.style.display = 'none';
+    };
+    if (calibrationBtn) calibrationBtn.addEventListener('click', openCalibrationQueueModal);
+    if (calibrationQueueCancelBtn) calibrationQueueCancelBtn.addEventListener('click', closeCalibrationQueueModal);
+    if (calibrationRetentionBtn) calibrationRetentionBtn.addEventListener('click', async () => {
+      closeCalibrationQueueModal();
+      await loadCalibrationCase('Retention');
+    });
+    if (calibrationSalesBtn) calibrationSalesBtn.addEventListener('click', async () => {
+      closeCalibrationQueueModal();
+      await loadCalibrationCase('Sales');
+    });
 
     // Custom inline agent dropdown interactions
     const ddRoot = document.querySelector('.agent-dropdown');
