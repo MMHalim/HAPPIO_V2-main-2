@@ -1285,11 +1285,13 @@ const AdminSettings = (function() {
             return showToast('Please fill in Conversation ID and Scorecard', 'warning');
  }
 
+        const scorecardsWithType = ['MX-T2_OS Scorecard', 'SMS_Scorecard', 'Wins_Scorecard'];
+
         const payload = {
             Conversation_Id: conversation_id,
             day,
             Score_card: scorecard_name,
-            type: (scorecard_name === 'MX-T2_OS Scorecard' || scorecard_name === 'SMS_Scorecard') ? type : null
+            type: scorecardsWithType.includes(scorecard_name) ? type : null
  };
 
         try {
@@ -1454,7 +1456,8 @@ const AdminSettings = (function() {
         if (calScorecardSelect) {
             calScorecardSelect.addEventListener('change', (e) => {
                 const typeContainer = document.getElementById('calibrationTypeContainer');
-                if (e.target.value === 'MX-T2_OS Scorecard' || e.target.value === 'SMS_Scorecard') {
+                const scorecardsWithType = ['MX-T2_OS Scorecard', 'SMS_Scorecard', 'Wins_Scorecard'];
+                if (scorecardsWithType.includes(e.target.value)) {
                     typeContainer.style.display = 'block';
  } else {
                     typeContainer.style.display = 'none';
