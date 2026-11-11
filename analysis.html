@@ -22,7 +22,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="global-navigation.js?v=20260916-03" defer></script>
-    <script src="analysis.js?v=20261019-01" defer></script>
+    <script src="analysis.js?v=20261112-01" defer></script>
   <style>
     .page-content { padding: 24px; max-width: 1520px; margin: 0 auto; }
     .analysis-card {
@@ -339,7 +339,7 @@
       .team-score-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 620px;
+        min-width: 760px;
       }
       .team-score-table th,
       .team-score-table td {
@@ -442,6 +442,11 @@
       color: #c4b5fd;
       border-color: rgba(139, 92, 246, 0.25);
     }
+    .source-chip-wins {
+      background: rgba(16, 185, 129, 0.14);
+      color: #86efac;
+      border-color: rgba(16, 185, 129, 0.25);
+    }
     [data-theme="light"] .source-chip-t1 {
       background: rgba(59, 130, 246, 0.08);
       color: #1d4ed8;
@@ -449,6 +454,10 @@
     [data-theme="light"] .source-chip-t2os {
       background: rgba(139, 92, 246, 0.08);
       color: #6d28d9;
+    }
+    [data-theme="light"] .source-chip-wins {
+      background: rgba(16, 185, 129, 0.08);
+      color: #047857;
     }
     .kpi-value {
       font-size: 2rem;
@@ -615,7 +624,7 @@
           <i data-lucide="loader-circle" class="h-6 w-6 animate-spin"></i>
         </div>
         <h1 class="text-2xl font-extrabold text-[var(--text-primary)]">Loading Analysis Dashboard</h1>
-        <p class="analysis-muted mt-3 text-sm">Fetching T1 and T2 OS evaluations from Supabase.</p>
+        <p class="analysis-muted mt-3 text-sm">Fetching T1, T2 OS, and Wins evaluations from Supabase.</p>
       </section>
     </div>
   </div>
@@ -637,6 +646,7 @@
           <select id="logSource" class="analysis-select">
             <option value="t1">T1_QA_New_Scorecards</option>
             <option value="t2os">T2_OS_NEW_2025</option>
+            <option value="wins">winsAuditSubmissions</option>
           </select>
         </label>
         <label class="block">

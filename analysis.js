@@ -27,6 +27,14 @@
       shortLabel: 'T2 OS',
       definitionTable: 'New_SC_Attributes',
       accentClass: 'source-chip-t2os'
+    },
+    wins: {
+      key: 'wins',
+      table: 'winsAuditSubmissions',
+      label: 'Wins Audits',
+      shortLabel: 'Wins',
+      definitionTable: 'winsAttributes',
+      accentClass: 'source-chip-wins'
     }
   };
 
@@ -35,7 +43,8 @@
     'final_score', 'channel', 'ticket_status', 'monitoring_type', 'interaction_related_to',
     'url', 'taker_name', 'sme_name', 'sme_answer', 'sme_following_process', 'sales',
     'sales_comments', 'agent_acknowledge', 'appealed', 'qa_appeal_comments_reply',
-    'customer_retained', 'coaching_delivered', 'fitness_fluency', 'queue', 'certification'
+    'customer_retained', 'coaching_delivered', 'fitness_fluency', 'queue', 'certification',
+    'calibration', 'result_status', 'type'
   ]);
 
   const NEGATIVE_COMMENT_RE = /\b(no|not|didn'?t|did not|missed|missing|failed|failure|incorrect|wrong|weak|poor|issue|problem|lack|needs improvement|should have|could have|opportunity|unclear|delay|late|didnt|wasn't|wasnt)\b/i;
@@ -66,9 +75,9 @@
 
   const state = {
     rows: [],
-    rawRows: { t1: [], t2os: [] },
-    definitions: { t1: [], t2os: [] },
-    definitionsMap: { t1: new Map(), t2os: new Map() },
+    rawRows: { t1: [], t2os: [], wins: [] },
+    definitions: { t1: [], t2os: [], wins: [] },
+    definitionsMap: { t1: new Map(), t2os: new Map(), wins: new Map() },
     availableAgents: [],
     activeAgent: 'Abdelrahman Fathy',
     teamFilter: 'all',
@@ -269,7 +278,7 @@
     const url = `${config.restUrl}/${dataset.definitionTable}?select=*`;
     const rows = await fetchJson(url);
     const normalized = (Array.isArray(rows) ? rows : []).map((row, index) => {
-      const label = String(pickMappedValue(row, ['Subcategory', 'Attribute', 'attribute', 'subcategory'], `Attribute ${index + 1}`)).trim();
+      const label = String(pickMappedValue(row, ['Subcategory', 'Attribute', 'attribute', 'subcategory', 'category', 'Category'], `Attribute ${index + 1}`)).trim();
       return {
         label,
         description: String(pickMappedValue(row, ['Criteria', 'criteria', 'description'], '')).trim(),
@@ -533,7 +542,7 @@
     const includeAuditorFilter = options.includeAuditorFilter !== false;
     let rows = state.rows.filter((row) => !state.deletedRowIds.has(row.rowId));
 
-      if (state.teamFilter === 't1' || state.teamFilter === 't2os') {
+      if (state.teamFilter === 't1' || state.teamFilter === 't2os' || state.teamFilter === 'wins') {
       rows = rows.filter((row) => row.datasetKey === state.teamFilter);
       } else if (isAgentMode() && state.activeAgent) {
       rows = rows.filter((row) => row.agent.toLowerCase() === state.activeAgent.toLowerCase());
@@ -776,7 +785,8 @@
     return {
       all: summarizeChannelBreakdown(rows, 'All Teams'),
       t1: summarizeChannelBreakdown(rows.filter((row) => row.datasetKey === 't1'), 'MX T1'),
-      t2os: summarizeChannelBreakdown(rows.filter((row) => row.datasetKey === 't2os'), 'MX T2 OS')
+      t2os: summarizeChannelBreakdown(rows.filter((row) => row.datasetKey === 't2os'), 'MX T2 OS'),
+      wins: summarizeChannelBreakdown(rows.filter((row) => row.datasetKey === 'wins'), 'Wins')
     };
   }
 
@@ -819,7 +829,8 @@
     const groups = {
       combined: rows,
       t1: rows.filter((row) => row.datasetKey === 't1'),
-      t2os: rows.filter((row) => row.datasetKey === 't2os')
+      t2os: rows.filter((row) => row.datasetKey === 't2os'),
+      wins: rows.filter((row) => row.datasetKey === 'wins')
     };
     return Object.fromEntries(Object.entries(groups).map(([key, groupRows]) => {
       const audits = groupRows.length;
@@ -838,12 +849,14 @@
           agent: row.agent,
           t1Scores: [],
           t2osScores: [],
+          winsScores: [],
           allScores: []
         };
 
         entry.allScores.push(row.score);
         if (row.datasetKey === 't1') entry.t1Scores.push(row.score);
         if (row.datasetKey === 't2os') entry.t2osScores.push(row.score);
+        if (row.datasetKey === 'wins') entry.winsScores.push(row.score);
         grouped.set(key, entry);
       });
 
@@ -857,6 +870,7 @@
           agent: entry.agent,
           t1Score: average(entry.t1Scores),
           t2osScore: average(entry.t2osScores),
+          winsScore: average(entry.winsScores),
           overallScore: average(entry.allScores)
         }))
         .sort((a, b) => {
@@ -874,6 +888,7 @@
           row.agent,
           Number.isFinite(row.t1Score) ? formatPercent(row.t1Score) : '',
           Number.isFinite(row.t2osScore) ? formatPercent(row.t2osScore) : '',
+          Number.isFinite(row.winsScore) ? formatPercent(row.winsScore) : '',
           Number.isFinite(row.overallScore) ? formatPercent(row.overallScore) : ''
         ].join(' ').toLowerCase();
         return haystack.includes(needle);
@@ -999,7 +1014,7 @@
             <i data-lucide="loader-circle" class="h-6 w-6 animate-spin"></i>
           </div>
           <h1 class="text-2xl font-extrabold text-[var(--text-primary)]">Loading Analysis Dashboard</h1>
-          <p class="analysis-muted mt-3 text-sm">Fetching T1 and T2 OS evaluations from Supabase.</p>
+          <p class="analysis-muted mt-3 text-sm">Fetching T1, T2 OS, and Wins evaluations from Supabase.</p>
         </section>
       `;
       renderIcons();
@@ -1037,7 +1052,7 @@
       const visibleTeamScoreCount = isTeamMode() ? filterTeamScoreRows(teamScoreRows).length : 0;
       const displayTitle = isAgentMode()
         ? (state.activeAgent || 'Select an agent')
-        : (isTeamMode() ? 'Team Performance ' : (state.teamFilter === 't1' ? 'MX T1 Team Performance' : 'MX T2 OS Team Performance'));
+        : (isTeamMode() ? 'Team Performance ' : `${datasetMeta(state.teamFilter).shortLabel} Team Performance`);
       const displaySubtitle = isAgentMode()
         ? 'QA Error Tracking & Attribute Feedback Dashboard'
         : 'Team-level QA Error Tracking';
@@ -1074,6 +1089,7 @@
                       <option value="team" ${state.teamFilter === 'team' ? 'selected' : ''}>Team</option>
                     <option value="t1" ${state.teamFilter === 't1' ? 'selected' : ''}>MX T1</option>
                     <option value="t2os" ${state.teamFilter === 't2os' ? 'selected' : ''}>MX T2 OS</option>
+                    <option value="wins" ${state.teamFilter === 'wins' ? 'selected' : ''}>Wins</option>
                   </select>
                 </label>
                 ${renderAuditorFilter(filterOptions.auditors)}
@@ -1122,18 +1138,20 @@
               <i data-lucide="sparkles" class="h-4 w-4 text-indigo-300"></i>
               <h2 class="text-lg font-extrabold text-[var(--text-primary)]">Score Comparison &amp; Dataset Breakdown</h2>
             </div>
-            <p class="analysis-muted mt-2 text-sm">View total points and average scores combined across both sheets or split by source.</p>
+            <p class="analysis-muted mt-2 text-sm">View total points and average scores combined across all sources or split by source.</p>
           </div>
           <div class="flex flex-wrap gap-2">
             ${renderDatasetButton('combined', 'Combined')}
             ${renderDatasetButton('t1', 'T1 Audits')}
             ${renderDatasetButton('t2os', 'T2 OS Audits')}
+            ${renderDatasetButton('wins', 'Wins Audits')}
           </div>
         </div>
-        <div class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-4">
           ${renderBreakdownCard('combined', 'Combined Score', breakdown.combined, state.datasetView === 'combined')}
           ${renderBreakdownCard('t1', 'T1 Score', breakdown.t1, state.datasetView === 't1')}
             ${renderBreakdownCard('t2os', 'T2 OS Score', breakdown.t2os, state.datasetView === 't2os')}
+            ${renderBreakdownCard('wins', 'Wins Score', breakdown.wins, state.datasetView === 'wins')}
         </div>
           ${isTeamMode() ? renderTeamScoreTable(teamScoreRows, visibleTeamScoreCount) : ''}
       </section>
@@ -1427,6 +1445,7 @@
                   <th>Name of the agent</th>
                   <th>T1 Score</th>
                   <th>T2 OS Score</th>
+	                  <th>Wins Score</th>
                   <th>Overall Score</th>
                 </tr>
               </thead>
@@ -1436,21 +1455,23 @@
                     row.agent,
                     Number.isFinite(row.t1Score) ? formatPercent(row.t1Score) : '',
                     Number.isFinite(row.t2osScore) ? formatPercent(row.t2osScore) : '',
+	                    Number.isFinite(row.winsScore) ? formatPercent(row.winsScore) : '',
                     Number.isFinite(row.overallScore) ? formatPercent(row.overallScore) : ''
                   ].join(' ').toLowerCase())}">
                     <td class="team-score-agent-cell">${escapeHtml(row.agent)}</td>
                     <td>${renderScoreCell(row.t1Score)}</td>
                     <td>${renderScoreCell(row.t2osScore)}</td>
+	                    <td>${renderScoreCell(row.winsScore)}</td>
                     <td>${renderScoreCell(row.overallScore)}</td>
                   </tr>
                 `).join('') : `
                   <tr id="teamScoreEmptyRow">
-                    <td colspan="4" class="team-score-empty">No team score rows match the current table search.</td>
+	                    <td colspan="5" class="team-score-empty">No team score rows match the current table search.</td>
                   </tr>
                 `}
                 ${rows.length ? `
                   <tr id="teamScoreEmptyRow" hidden>
-                    <td colspan="4" class="team-score-empty">No team score rows match the current table search.</td>
+	                    <td colspan="5" class="team-score-empty">No team score rows match the current table search.</td>
                   </tr>
                 ` : ''}
               </tbody>
@@ -1491,6 +1512,7 @@
         'Name of the agent': row.agent,
         'T1 Score': Number.isFinite(row.t1Score) ? formatPercent(row.t1Score) : '',
         'T2 OS Score': Number.isFinite(row.t2osScore) ? formatPercent(row.t2osScore) : '',
+        'Wins Score': Number.isFinite(row.winsScore) ? formatPercent(row.winsScore) : '',
         'Overall Score': Number.isFinite(row.overallScore) ? formatPercent(row.overallScore) : ''
       }));
     }
@@ -1509,7 +1531,7 @@
 
     function exportTeamScoreCsv(rows) {
       const exportRows = buildTeamScoreExportRows(rows);
-      const headers = ['Name of the agent', 'T1 Score', 'T2 OS Score', 'Overall Score'];
+      const headers = ['Name of the agent', 'T1 Score', 'T2 OS Score', 'Wins Score', 'Overall Score'];
       const lines = [
         headers.join(','),
         ...exportRows.map((row) => headers.map((key) => `"${String(row[key] || '').replace(/"/g, '""')}"`).join(','))
@@ -1758,10 +1780,7 @@
     if (teamFilterSelect) {
       teamFilterSelect.addEventListener('change', (event) => {
         state.teamFilter = event.target.value;
-        if (state.teamFilter === 't1' && state.datasetView === 't2os') {
-          state.datasetView = 'combined';
-        }
-        if (state.teamFilter === 't2os' && state.datasetView === 't1') {
+        if (DATASETS[state.teamFilter] && state.datasetView !== 'combined' && state.datasetView !== state.teamFilter) {
           state.datasetView = 'combined';
         }
         render();
@@ -2098,8 +2117,10 @@
       await Promise.all([
         fetchDefinitions('t1'),
         fetchDefinitions('t2os'),
+        fetchDefinitions('wins'),
         fetchDataset('t1'),
-        fetchDataset('t2os')
+        fetchDataset('t2os'),
+        fetchDataset('wins')
       ]);
       rebuildRows();
       state.loading = false;
