@@ -1463,29 +1463,7 @@ const WinsScorecard = (function() {
           if (!resSvc.ok) throw new Error(await resSvc.text());
           res = resSvc;
  } else {
-          const lower = String(bodyText || '').toLowerCase();
-          const isDuplicate =
-            (res.status === 409 || res.status === 400) &&
-            (lower.includes('duplicate') || lower.includes('23505') || lower.includes('unique'));
-          if (isDuplicate && payload.conversation_id) {
-            const patchUrl = `${config.restUrl}/${WINS_SUBMISSIONS_TABLE}?conversation_id=eq.${encodeURIComponent(payload.conversation_id)}`;
-            const patchHeaders = authHeaders({ useServiceKey: true });
-            patchHeaders['Prefer'] = 'return=minimal';
-            patchHeaders['Content-Type'] = 'application/json';
-            const patchRes = await fetch(patchUrl, { method: 'PATCH', headers: patchHeaders, body });
-            if (!patchRes.ok) {
-              const patchText = await patchRes.text().catch(() => '');
-              throw new Error(patchText || 'Duplicate update failed');
- }
-            try {
-              const notice = document.getElementById('duplicateNotice');
-              if (notice) notice.style.display = 'block';
-              showAlert('Duplicate Conversation ID detected. Updated the existing submission.', { title: 'Duplicate detected', type: 'warning' });
- } catch (_) {}
-            res = patchRes;
- } else {
-            throw new Error(bodyText || 'Unknown submission error');
- }
+          throw new Error(bodyText || 'Unknown submission error');
  }
  }
 
